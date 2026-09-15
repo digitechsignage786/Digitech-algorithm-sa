@@ -25,7 +25,16 @@ jobs:
       - name: Find V28 ZIP
         run: |
           set -e
-          ZIP=$(find . -maxdepth 2 -type f -name 'DigitechAlgorithm*.zip' | head -n 1)
+          ZIP=$(find . -maxdepth 2 -type f -name 'DigitechAlgorithm_V28_Fixed3.zip' -print -quit)
+
+if [ -z "$ZIP" ]; then
+  echo "V28 Fixed3 ZIP not found"
+  exit 1
+fi
+
+echo "Using exact V28 Fixed3 ZIP: $ZIP"
+mkdir -p project
+unzip -q "$ZIP" -d project
 
           if [ -z "$ZIP" ]; then
             echo "Digitech Algorithm ZIP not found"
