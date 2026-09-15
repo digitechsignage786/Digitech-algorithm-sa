@@ -22,11 +22,26 @@ jobs:
         with:
           gradle-version: "8.9"
 
+      - name: Extract V28 project
+        run: |
+          set -e
+          mkdir -p project
+          unzip -q DigitechAlgorithm_V28_Fixed_BlankScreen.zip -d project
+
+      - name: Check Gradle project
+        working-directory: project
+        run: |
+          test -f settings.gradle.kts
+          test -f build.gradle.kts
+          test -f app/build.gradle.kts
+          echo "V28 Android project found"
+
       - name: Build V28 APK
+        working-directory: project
         run: gradle --no-daemon assembleDebug
 
       - name: Upload V28 APK
         uses: actions/upload-artifact@v4
         with:
-          name: DigitechAlgorithm-V28-APK
-          path: app/build/outputs/apk/debug/*.apk
+          name: DigitechAlgorithm-V28-Fixed-APK
+          path: project/app/build/outputs/apk/debug/*.apk
