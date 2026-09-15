@@ -22,36 +22,43 @@ jobs:
         with:
           gradle-version: "8.9"
 
-      - name: Extract V28 project
+      - name: Find V28 ZIP
         run: |
           set -e
-          mkdir -p project
           ZIP=$(find . -maxdepth 2 -type f -name 'DigitechAlgorithm*.zip' | head -n 1)
 
-if [ -z "$ZIP" ]; then
-  echo "Digitech Algorithm ZIP not found"
-  exit 1
-fi
+          if [ -z "$ZIP" ]; then
+            echo "Digitech Algorithm ZIP not found"
+            find . -maxdepth 3 -type f | head -100
+            exit 1
+          fi
 
-echo "Using ZIP: $ZIP"
+          echo "Using ZIP: $ZIP"
+          mkdir -p project
+          unzip -q "$ZIP" -d project
 
-mkdir -p project
-unzip -q "$ZIP" -d project
-
-      - name: Check Gradle project
-        working-directory: project
+      - name: Locate Android project
         run: |
-          test -f settings.gradle.kts
-          test -f build.gradle.kts
-          test -f app/build.gradle.kts
-          echo "V28 Android project found"
+          set -e
+
+          ROOT=$(find project -type f -name 'settings.gradle.kts' -print -quit)
+
+          if [ -z "$ROOT" ]; then
+            echo "settings.gradle.kts not found"
+            find project -maxdepth 5 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$ROOT")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+          echo "Android project: $PROJECT_DIR"
 
       - name: Build V28 APK
-        working-directory: project
+        working-directory: ${{ env.PROJECT_DIR }}
         run: gradle --no-daemon assembleDebug
 
       - name: Upload V28 APK
         uses: actions/upload-artifact@v4
         with:
           name: DigitechAlgorithm-V28-Fixed-APK
-          path: project/app/build/outputs/apk/debug/*.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
