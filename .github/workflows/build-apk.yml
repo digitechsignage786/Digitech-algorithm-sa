@@ -26,7 +26,17 @@ jobs:
         run: |
           set -e
           mkdir -p project
-          unzip -q DigitechAlgorithm_V28_Fixed_BlankScreen.zip -d project
+          ZIP=$(find . -maxdepth 2 -type f -name 'DigitechAlgorithm*.zip' | head -n 1)
+
+if [ -z "$ZIP" ]; then
+  echo "Digitech Algorithm ZIP not found"
+  exit 1
+fi
+
+echo "Using ZIP: $ZIP"
+
+mkdir -p project
+unzip -q "$ZIP" -d project
 
       - name: Check Gradle project
         working-directory: project
