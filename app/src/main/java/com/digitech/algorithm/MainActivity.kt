@@ -8,67 +8,92 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    private val bg = Color.rgb(8, 14, 22)
-    private val panel = Color.rgb(15, 23, 34)
-    private val white = Color.WHITE
-    private val muted = Color.rgb(145, 158, 175)
+    private val bgColor = Color.rgb(8, 14, 22)
+    private val panelColor = Color.rgb(15, 23, 34)
+    private val whiteColor = Color.WHITE
+    private val mutedColor = Color.rgb(145, 158, 175)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.statusBarColor = bg
-        window.navigationBarColor = bg
+        window.statusBarColor = bgColor
+        window.navigationBarColor = bgColor
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
+            setBackgroundColor(bgColor)
         }
 
         // TOP BAR
-        val top = LinearLayout(this).apply {
+        val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(16, 8, 16, 8)
-            setBackgroundColor(panel)
+            setBackgroundColor(panelColor)
         }
 
-        val symbol = TextView(this).apply {
+        val title = TextView(this).apply {
             text = "DA  |  EURUSD"
             textSize = 18f
-            setTextColor(white)
+            setTextColor(whiteColor)
             setTypeface(null, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        top.addView(
-            symbol,
-            LinearLayout.LayoutParams(0, 56, 1f)
+        topBar.addView(
+            title,
+            LinearLayout.LayoutParams(
+                0,
+                56,
+                1f
+            )
         )
 
         val timeframe = Spinner(this).apply {
             adapter = ArrayAdapter(
                 this@MainActivity,
                 android.R.layout.simple_spinner_dropdown_item,
-                arrayOf("1m", "3m", "5m", "15m", "30m", "1H", "4H", "1D", "1W")
+                arrayOf(
+                    "1m",
+                    "3m",
+                    "5m",
+                    "15m",
+                    "30m",
+                    "1H",
+                    "4H",
+                    "1D",
+                    "1W"
+                )
             )
         }
 
-        top.addView(
+        topBar.addView(
             timeframe,
-            LinearLayout.LayoutParams(120, 56)
+            LinearLayout.LayoutParams(
+                120,
+                56
+            )
         )
 
-        root.addView(top)
+        root.addView(
+            topBar,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         // MAIN AREA
-        val main = LinearLayout(this).apply {
+        val mainArea = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
+            setBackgroundColor(bgColor)
         }
 
-        // LEFT TOOLS
-        val tools = LinearLayout(this).apply {
+        // LEFT TOOLBAR
+        val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setBackgroundColor(panel)
+            setBackgroundColor(panelColor)
         }
 
         val toolNames = arrayOf(
@@ -83,46 +108,58 @@ class MainActivity : AppCompatActivity() {
             "⌖"
         )
 
-        for (name in toolNames) {
+        for (toolName in toolNames) {
+
             val tool = TextView(this).apply {
-                text = name
+                text = toolName
                 textSize = 20f
-                setTextColor(white)
+                setTextColor(whiteColor)
                 gravity = Gravity.CENTER
                 setPadding(4, 8, 4, 8)
             }
 
-            tools.addView(
+            toolbar.addView(
                 tool,
-                LinearLayout.LayoutParams(62, 56)
+                LinearLayout.LayoutParams(
+                    62,
+                    56
+                )
             )
         }
 
-        main.addView(
-            tools,
-            LinearLayout.LayoutParams(68, -1)
+        mainArea.addView(
+            toolbar,
+            LinearLayout.LayoutParams(
+                68,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
         )
 
-        // ACTUAL CHART VIEW
-        val chart = CandlestickChartView(this)
+        // CHART
+        val chartView = CandlestickChartView(this)
 
-        main.addView(
-            chart,
-            LinearLayout.LayoutParams(0, -1, 1f)
+        mainArea.addView(
+            chartView,
+            LinearLayout.LayoutParams(
+                0,
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                1f
+            )
         )
 
         // WATCHLIST
         val watchlist = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(panel)
+            setBackgroundColor(panelColor)
             setPadding(10, 12, 10, 8)
         }
 
         val watchTitle = TextView(this).apply {
             text = "WATCHLIST"
             textSize = 14f
-            setTextColor(white)
+            setTextColor(whiteColor)
             setTypeface(null, android.graphics.Typeface.BOLD)
+            setPadding(4, 0, 4, 12)
         }
 
         watchlist.addView(watchTitle)
@@ -138,65 +175,93 @@ class MainActivity : AppCompatActivity() {
             "AAPL"
         )
 
-        for (itemName in symbols) {
+        for (symbolName in symbols) {
+
             val item = TextView(this).apply {
-                text = itemName
+                text = symbolName
                 textSize = 14f
-                setTextColor(muted)
-                setPadding(4, 11, 4, 11)
+                setTextColor(mutedColor)
+                setPadding(4, 10, 4, 10)
             }
 
             watchlist.addView(item)
         }
 
-        main.addView(
+        mainArea.addView(
             watchlist,
-            LinearLayout.LayoutParams(180, -1)
+            LinearLayout.LayoutParams(
+                180,
+                LinearLayout.LayoutParams.MATCH_PARENT
+            )
         )
 
+        // IMPORTANT:
+        // MAIN AREA MUST HAVE MATCH_PARENT WIDTH
+        // AND WEIGHTED HEIGHT.
         root.addView(
-            main,
-            LinearLayout.LayoutParams(0, 0, 1f)
+            mainArea,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
         )
 
-        // BOTTOM
-        val bottom = LinearLayout(this).apply {
+        // BOTTOM PANEL
+        val bottomPanel = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(12, 6, 12, 6)
-            setBackgroundColor(panel)
+            setBackgroundColor(panelColor)
         }
 
-        val status = TextView(this).apply {
+        val signal = TextView(this).apply {
             text = "ICT SIGNAL: WAITING FOR MARKET DATA"
             textSize = 13f
-            setTextColor(muted)
+            setTextColor(mutedColor)
+            gravity = Gravity.CENTER_VERTICAL
         }
 
-        bottom.addView(
-            status,
-            LinearLayout.LayoutParams(0, 52, 1f)
+        bottomPanel.addView(
+            signal,
+            LinearLayout.LayoutParams(
+                0,
+                52,
+                1f
+            )
         )
 
-        val buy = Button(this).apply {
+        val buyButton = Button(this).apply {
             text = "BUY"
         }
 
-        bottom.addView(
-            buy,
-            LinearLayout.LayoutParams(110, 52)
+        bottomPanel.addView(
+            buyButton,
+            LinearLayout.LayoutParams(
+                110,
+                52
+            )
         )
 
-        val sell = Button(this).apply {
+        val sellButton = Button(this).apply {
             text = "SELL"
         }
 
-        bottom.addView(
-            sell,
-            LinearLayout.LayoutParams(110, 52)
+        bottomPanel.addView(
+            sellButton,
+            LinearLayout.LayoutParams(
+                110,
+                52
+            )
         )
 
-        root.addView(bottom)
+        root.addView(
+            bottomPanel,
+            LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+        )
 
         setContentView(root)
     }
