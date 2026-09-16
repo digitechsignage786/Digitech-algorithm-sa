@@ -27,6 +27,7 @@ class CandlestickChartView(context: Context) : View(context) {
 
     private var scale = 1f
     private var offsetX = 0f
+
     private var lastX = 0f
     private var lastY = 0f
 
@@ -34,34 +35,53 @@ class CandlestickChartView(context: Context) : View(context) {
     private var crossY = -1f
 
     init {
-        setBackgroundColor(Color.rgb(8, 14, 22))
 
-        gridPaint.color = Color.rgb(24, 36, 50)
+        setBackgroundColor(
+            Color.rgb(8, 14, 22)
+        )
+
+        gridPaint.color =
+            Color.rgb(24, 36, 50)
+
         gridPaint.strokeWidth = 1f
 
-        textPaint.color = Color.rgb(145, 158, 175)
-        textPaint.textSize = 28f
+        textPaint.color =
+            Color.rgb(145, 158, 175)
 
-        candleUpPaint.color = Color.rgb(20, 190, 150)
-        candleDownPaint.color = Color.rgb(235, 65, 85)
+        textPaint.textSize = 18f
 
-        crosshairPaint.color = Color.rgb(100, 120, 140)
+        candleUpPaint.color =
+            Color.rgb(20, 190, 150)
+
+        candleDownPaint.color =
+            Color.rgb(235, 65, 85)
+
+        crosshairPaint.color =
+            Color.rgb(100, 120, 140)
+
         crosshairPaint.strokeWidth = 1f
-        crosshairPaint.pathEffect = DashPathEffect(
-            floatArrayOf(8f, 8f),
-            0f
-        )
+
+        crosshairPaint.pathEffect =
+            DashPathEffect(
+                floatArrayOf(8f, 8f),
+                0f
+            )
     }
 
     override fun onDraw(canvas: Canvas) {
+
         super.onDraw(canvas)
 
         drawGrid(canvas)
+
         drawAxes(canvas)
 
         if (candles.isEmpty()) {
+
+            textPaint.textAlign =
+                Paint.Align.CENTER
+
             textPaint.textSize = 30f
-            textPaint.textAlign = Paint.Align.CENTER
 
             canvas.drawText(
                 "LIVE MARKET CHART",
@@ -70,7 +90,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 textPaint
             )
 
-            textPaint.textSize = 21f
+            textPaint.textSize = 20f
 
             canvas.drawText(
                 "Waiting for real OHLC market data...",
@@ -79,7 +99,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 textPaint
             )
 
-            textPaint.textSize = 17f
+            textPaint.textSize = 16f
 
             canvas.drawText(
                 "No demo candles",
@@ -87,11 +107,14 @@ class CandlestickChartView(context: Context) : View(context) {
                 height / 2f + 50f,
                 textPaint
             )
+
         } else {
+
             drawCandles(canvas)
         }
 
         if (crossX >= 0f && crossY >= 0f) {
+
             drawCrosshair(canvas)
         }
 
@@ -103,9 +126,11 @@ class CandlestickChartView(context: Context) : View(context) {
         val verticalSpacing = 120f
         val horizontalSpacing = 90f
 
-        var x = offsetX % verticalSpacing
+        var x =
+            offsetX % verticalSpacing
 
         while (x < width) {
+
             canvas.drawLine(
                 x,
                 0f,
@@ -113,12 +138,14 @@ class CandlestickChartView(context: Context) : View(context) {
                 height.toFloat(),
                 gridPaint
             )
+
             x += verticalSpacing
         }
 
         var y = 0f
 
         while (y < height) {
+
             canvas.drawLine(
                 0f,
                 y,
@@ -126,17 +153,19 @@ class CandlestickChartView(context: Context) : View(context) {
                 y,
                 gridPaint
             )
+
             y += horizontalSpacing
         }
     }
 
     private fun drawAxes(canvas: Canvas) {
 
-        textPaint.textAlign = Paint.Align.RIGHT
+        textPaint.textAlign =
+            Paint.Align.RIGHT
+
         textPaint.textSize = 16f
 
-        val labels = arrayOf(
-            "Price",
+        val priceLabels = arrayOf(
             "1.0900",
             "1.0875",
             "1.0850",
@@ -144,9 +173,9 @@ class CandlestickChartView(context: Context) : View(context) {
             "1.0800"
         )
 
-        var y = 45f
+        var y = 55f
 
-        for (label in labels) {
+        for (label in priceLabels) {
 
             canvas.drawText(
                 label,
@@ -158,7 +187,8 @@ class CandlestickChartView(context: Context) : View(context) {
             y += 75f
         }
 
-        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textAlign =
+            Paint.Align.LEFT
 
         canvas.drawText(
             "09:00",
@@ -193,54 +223,91 @@ class CandlestickChartView(context: Context) : View(context) {
 
         if (candles.isEmpty()) return
 
-        var highest = Float.MIN_VALUE
-        var lowest = Float.MAX_VALUE
+        var highest =
+            Float.MIN_VALUE
+
+        var lowest =
+            Float.MAX_VALUE
 
         for (candle in candles) {
-            highest = max(highest, candle.high)
-            lowest = min(lowest, candle.low)
+
+            highest =
+                max(highest, candle.high)
+
+            lowest =
+                min(lowest, candle.low)
         }
 
-        val range = max(highest - lowest, 0.00001f)
+        val range =
+            max(
+                highest - lowest,
+                0.00001f
+            )
 
-        val candleWidth = 18f * scale
-        val gap = 8f * scale
-        val step = candleWidth + gap
+        val candleWidth =
+            18f * scale
+
+        val gap =
+            8f * scale
+
+        val step =
+            candleWidth + gap
 
         for (i in candles.indices) {
 
-            val candle = candles[i]
+            val candle =
+                candles[i]
 
-            val x = 80f + i * step + offsetX
+            val x =
+                80f +
+                i * step +
+                offsetX
 
-            if (x < -50f || x > width + 50f) {
+            if (
+                x < -50f ||
+                x > width + 50f
+            ) {
                 continue
             }
 
             val highY =
-                40f + (highest - candle.high) /
-                        range * (height - 100f)
+                40f +
+                (highest - candle.high) /
+                range *
+                (height - 100f)
 
             val lowY =
-                40f + (highest - candle.low) /
-                        range * (height - 100f)
+                40f +
+                (highest - candle.low) /
+                range *
+                (height - 100f)
 
             val openY =
-                40f + (highest - candle.open) /
-                        range * (height - 100f)
+                40f +
+                (highest - candle.open) /
+                range *
+                (height - 100f)
 
             val closeY =
-                40f + (highest - candle.close) /
-                        range * (height - 100f)
+                40f +
+                (highest - candle.close) /
+                range *
+                (height - 100f)
 
             val paint =
-                if (candle.close >= candle.open)
+                if (
+                    candle.close >=
+                    candle.open
+                ) {
                     candleUpPaint
-                else
+                } else {
                     candleDownPaint
+                }
 
-            val centerX = x + candleWidth / 2f
+            val centerX =
+                x + candleWidth / 2f
 
+            // Wick
             canvas.drawLine(
                 centerX,
                 highY,
@@ -249,20 +316,29 @@ class CandlestickChartView(context: Context) : View(context) {
                 paint
             )
 
-            val top = min(openY, closeY)
-            val bottom = max(openY, closeY)
+            // Body
+            val top =
+                min(openY, closeY)
+
+            val bottom =
+                max(openY, closeY)
 
             canvas.drawRect(
                 x,
                 top,
                 x + candleWidth,
-                max(bottom, top + 2f),
+                max(
+                    bottom,
+                    top + 2f
+                ),
                 paint
             )
         }
     }
 
-    private fun drawCrosshair(canvas: Canvas) {
+    private fun drawCrosshair(
+        canvas: Canvas
+    ) {
 
         canvas.drawLine(
             crossX,
@@ -281,11 +357,17 @@ class CandlestickChartView(context: Context) : View(context) {
         )
     }
 
-    private fun drawBranding(canvas: Canvas) {
+    private fun drawBranding(
+        canvas: Canvas
+    ) {
 
-        textPaint.textAlign = Paint.Align.LEFT
+        textPaint.textAlign =
+            Paint.Align.LEFT
+
         textPaint.textSize = 16f
-        textPaint.color = Color.rgb(105, 120, 135)
+
+        textPaint.color =
+            Color.rgb(105, 120, 135)
 
         canvas.drawText(
             "DA",
@@ -295,25 +377,33 @@ class CandlestickChartView(context: Context) : View(context) {
         )
     }
 
-    override fun onTouchEvent(event: MotionEvent): Boolean {
+    override fun onTouchEvent(
+        event: MotionEvent
+    ): Boolean {
 
         when (event.actionMasked) {
 
             MotionEvent.ACTION_DOWN -> {
+
                 lastX = event.x
                 lastY = event.y
+
                 crossX = event.x
                 crossY = event.y
+
                 invalidate()
+
                 return true
             }
 
             MotionEvent.ACTION_MOVE -> {
 
-                val dx = event.x - lastX
-                val dy = event.y - lastY
+                val dx =
+                    event.x - lastX
 
-                if (event.pointerCount == 1) {
+                if (
+                    event.pointerCount == 1
+                ) {
                     offsetX += dx
                 }
 
@@ -324,11 +414,14 @@ class CandlestickChartView(context: Context) : View(context) {
                 lastY = event.y
 
                 invalidate()
+
                 return true
             }
 
             MotionEvent.ACTION_UP -> {
+
                 invalidate()
+
                 return true
             }
         }
@@ -336,14 +429,23 @@ class CandlestickChartView(context: Context) : View(context) {
         return true
     }
 
-    fun setCandles(newCandles: List<Candle>) {
+    fun setCandles(
+        newCandles: List<Candle>
+    ) {
+
         candles.clear()
-        candles.addAll(newCandles)
+
+        candles.addAll(
+            newCandles
+        )
+
         invalidate()
     }
 
     fun clearCandles() {
+
         candles.clear()
+
         invalidate()
     }
 }
