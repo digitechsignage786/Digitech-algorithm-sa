@@ -1,6 +1,7 @@
 package com.digitech.algorithm
 
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
 import android.widget.*
@@ -8,14 +9,15 @@ import androidx.appcompat.app.AppCompatActivity
 
 class MainActivity : AppCompatActivity() {
 
-    private val bg = Color.rgb(7, 13, 21)
-    private val panel = Color.rgb(13, 21, 32)
-    private val panel2 = Color.rgb(18, 28, 41)
-    private val blue = Color.rgb(30, 120, 230)
-    private val green = Color.rgb(20, 190, 145)
-    private val red = Color.rgb(235, 65, 85)
+    private val bg = Color.rgb(8, 12, 18)
+    private val panel = Color.rgb(13, 18, 26)
+    private val panel2 = Color.rgb(20, 27, 37)
+    private val border = Color.rgb(35, 45, 58)
     private val white = Color.WHITE
-    private val muted = Color.rgb(145, 158, 175)
+    private val muted = Color.rgb(145, 157, 173)
+    private val green = Color.rgb(30, 190, 145)
+    private val red = Color.rgb(235, 70, 88)
+    private val blue = Color.rgb(55, 130, 235)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,185 +30,128 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(bg)
         }
 
-        // =========================================================
-        // TOP HEADER
-        // =========================================================
-
-        val header = LinearLayout(this).apply {
+        // TOP BAR
+        val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(14, 6, 10, 6)
+            setPadding(10, 4, 10, 4)
             setBackgroundColor(panel)
         }
 
         val logo = TextView(this).apply {
             text = "DA"
-            textSize = 22f
-            setTextColor(white)
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            textSize = 21f
             gravity = Gravity.CENTER
-        }
-
-        header.addView(
-            logo,
-            LinearLayout.LayoutParams(48, 50)
-        )
-
-        val appTitle = TextView(this).apply {
-            text = "Digitech Algorithm\nTrade Smart | Trade With Logic"
-            textSize = 11f
             setTextColor(white)
-            gravity = Gravity.CENTER_VERTICAL
+            setTypeface(null, Typeface.BOLD)
         }
 
-        header.addView(
-            appTitle,
-            LinearLayout.LayoutParams(190, 50)
-        )
+        top.addView(logo, LinearLayout.LayoutParams(48, 48))
 
         val symbol = TextView(this).apply {
-            text = "●  EURUSD  ▾"
+            text = "EURUSD  ▾"
             textSize = 15f
             setTextColor(white)
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(12, 0, 12, 0)
+            setPadding(12, 0, 15, 0)
         }
 
-        header.addView(
-            symbol,
-            LinearLayout.LayoutParams(145, 50)
-        )
+        top.addView(symbol, LinearLayout.LayoutParams(125, 48))
 
-        val timeframes = arrayOf(
-            "1m", "5m", "15m", "30m",
-            "1H", "4H", "D", "W", "M"
-        )
+        val tfList = arrayOf("1m", "5m", "15m", "30m", "1H", "4H", "D", "W")
 
-        for (tf in timeframes) {
-
-            val button = TextView(this).apply {
+        for (tf in tfList) {
+            val v = TextView(this).apply {
                 text = tf
-                textSize = 13f
+                textSize = 12f
                 gravity = Gravity.CENTER
-                setTextColor(
-                    if (tf == "15m") white else muted
-                )
-                setBackgroundColor(
-                    if (tf == "15m") blue else Color.TRANSPARENT
-                )
+                setTextColor(if (tf == "15m") white else muted)
+
+                if (tf == "15m") {
+                    setBackgroundColor(blue)
+                }
             }
 
-            header.addView(
-                button,
-                LinearLayout.LayoutParams(48, 44)
-            )
+            top.addView(v, LinearLayout.LayoutParams(43, 40))
         }
 
-        val indicators = TextView(this).apply {
-            text = "◫  Indicators"
-            textSize = 13f
-            setTextColor(white)
+        val indicator = TextView(this).apply {
+            text = "Indicators"
+            textSize = 12f
             gravity = Gravity.CENTER
-            setPadding(10, 0, 10, 0)
+            setTextColor(white)
         }
 
-        header.addView(
-            indicators,
-            LinearLayout.LayoutParams(115, 50)
+        top.addView(
+            indicator,
+            LinearLayout.LayoutParams(90, 48)
         )
 
-        val alert = TextView(this).apply {
-            text = "◉  Alert"
-            textSize = 13f
-            setTextColor(white)
+        val search = TextView(this).apply {
+            text = "⌕"
+            textSize = 25f
             gravity = Gravity.CENTER
+            setTextColor(white)
         }
 
-        header.addView(
-            alert,
-            LinearLayout.LayoutParams(80, 50)
-        )
-
-        val replay = TextView(this).apply {
-            text = "◁  Replay"
-            textSize = 13f
-            setTextColor(white)
-            gravity = Gravity.CENTER
-        }
-
-        header.addView(
-            replay,
-            LinearLayout.LayoutParams(85, 50)
-        )
+        top.addView(search, LinearLayout.LayoutParams(45, 48))
 
         root.addView(
-            header,
+            top,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                60
+                56
             )
         )
 
-        // =========================================================
-        // SECONDARY INFO BAR
-        // =========================================================
-
-        val infoBar = LinearLayout(this).apply {
+        // SECOND BAR
+        val second = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(panel2)
             setPadding(12, 0, 12, 0)
-            setBackgroundColor(bg)
         }
 
-        val info = TextView(this).apply {
-            text = "EURUSD · 15 · LIVE     O 1.08452   H 1.08518   L 1.08437   C 1.08496"
-            textSize = 12f
+        val priceInfo = TextView(this).apply {
+            text = "EURUSD · 15m     O 1.08452   H 1.08518   L 1.08437   C 1.08496"
+            textSize = 11f
             setTextColor(muted)
         }
 
-        infoBar.addView(
-            info,
-            LinearLayout.LayoutParams(0, 42, 1f)
+        second.addView(
+            priceInfo,
+            LinearLayout.LayoutParams(0, 40, 1f)
         )
 
-        val ictStatus = TextView(this).apply {
-            text = "● ICT AUTO DRAWING: ON"
-            textSize = 12f
+        val live = TextView(this).apply {
+            text = "● LIVE"
+            textSize = 11f
             setTextColor(green)
             gravity = Gravity.CENTER
         }
 
-        infoBar.addView(
-            ictStatus,
-            LinearLayout.LayoutParams(190, 42)
-        )
+        second.addView(live, LinearLayout.LayoutParams(70, 40))
 
         root.addView(
-            infoBar,
+            second,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                42
+                40
             )
         )
 
-        // =========================================================
-        // MAIN CONTENT
-        // =========================================================
-
-        val content = LinearLayout(this).apply {
+        // MAIN AREA
+        val main = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setBackgroundColor(bg)
         }
 
-        // ---------------------------------------------------------
-        // LEFT DRAWING TOOLBAR
-        // ---------------------------------------------------------
-
-        val leftTools = LinearLayout(this).apply {
+        // DRAWING TOOLBAR
+        val toolsPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
             setBackgroundColor(panel)
-            setPadding(3, 4, 3, 4)
+            setPadding(2, 4, 2, 4)
         }
 
         val tools = arrayOf(
@@ -219,51 +164,42 @@ class MainActivity : AppCompatActivity() {
             "○",
             "⌁",
             "T",
-            "⌂",
             "⌗",
-            "◉",
-            "⌘",
+            "⌂",
             "↶",
-            "▣"
+            "↷"
         )
 
-        for (toolName in tools) {
-
+        for (name in tools) {
             val tool = TextView(this).apply {
-                text = toolName
-                textSize = 20f
-                setTextColor(white)
+                text = name
+                textSize = 19f
                 gravity = Gravity.CENTER
-                setPadding(2, 5, 2, 5)
+                setTextColor(muted)
             }
 
-            leftTools.addView(
+            toolsPanel.addView(
                 tool,
-                LinearLayout.LayoutParams(54, 45)
+                LinearLayout.LayoutParams(48, 44)
             )
         }
 
-        content.addView(
-            leftTools,
+        main.addView(
+            toolsPanel,
             LinearLayout.LayoutParams(
-                62,
+                52,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
 
-        // ---------------------------------------------------------
-        // CENTER CHART
-        // ---------------------------------------------------------
-
-        val chartContainer = FrameLayout(this).apply {
-            setBackgroundColor(
-                Color.rgb(7, 14, 22)
-            )
+        // CHART
+        val chartFrame = FrameLayout(this).apply {
+            setBackgroundColor(Color.rgb(7, 12, 18))
         }
 
         val chart = CandlestickChartView(this)
 
-        chartContainer.addView(
+        chartFrame.addView(
             chart,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT,
@@ -271,59 +207,44 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // Chart overlay: ICT labels
-        val chartOverlay = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(14, 12, 0, 0)
-        }
-
-        val ictLabel = TextView(this).apply {
-            text = "ICT STRUCTURE"
-            textSize = 11f
-            setTextColor(green)
-        }
-
-        chartOverlay.addView(ictLabel)
-
-        val concepts = TextView(this).apply {
-            text = "BOS   MSS   CHoCH   FVG   OB   LIQUIDITY"
+        // CHART HEADER OVERLAY
+        val chartInfo = TextView(this).apply {
+            text = "ICT AUTO DRAWING  •  ON\nBOS   MSS   CHoCH   FVG   OB   LIQUIDITY"
             textSize = 10f
-            setTextColor(muted)
+            setTextColor(green)
+            setPadding(12, 10, 0, 0)
         }
 
-        chartOverlay.addView(concepts)
-
-        chartContainer.addView(
-            chartOverlay,
+        chartFrame.addView(
+            chartInfo,
             FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.WRAP_CONTENT,
                 FrameLayout.LayoutParams.WRAP_CONTENT
             )
         )
 
-        // Bottom chart tabs
-        val chartTabs = TextView(this).apply {
-            text = "1D   5D   1M   3M   6M   YTD   1Y   5Y   All"
-            textSize = 10f
+        // RIGHT BOTTOM STATUS
+        val chartStatus = TextView(this).apply {
+            text = "DA  •  REAL OHLC DATA REQUIRED"
+            textSize = 9f
             setTextColor(muted)
-            setPadding(12, 4, 12, 4)
-            setBackgroundColor(panel)
+            setPadding(10, 0, 10, 8)
         }
 
-        val tabParams = FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            30
-        ).apply {
-            gravity = Gravity.BOTTOM
-        }
-
-        chartContainer.addView(
-            chartTabs,
-            tabParams
+        val statusParams = FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT
         )
 
-        content.addView(
-            chartContainer,
+        statusParams.gravity = Gravity.BOTTOM or Gravity.LEFT
+
+        chartFrame.addView(
+            chartStatus,
+            statusParams
+        )
+
+        main.addView(
+            chartFrame,
             LinearLayout.LayoutParams(
                 0,
                 LinearLayout.LayoutParams.MATCH_PARENT,
@@ -331,113 +252,98 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // ---------------------------------------------------------
-        // RIGHT PANEL
-        // ---------------------------------------------------------
-
-        val rightPanel = LinearLayout(this).apply {
+        // RIGHT WATCHLIST
+        val right = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(panel)
-            setPadding(8, 8, 8, 6)
+            setPadding(8, 8, 8, 5)
         }
 
-        val watchHeader = TextView(this).apply {
-            text = "WATCHLIST                         +"
-            textSize = 14f
-            setTextColor(white)
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(4, 4, 4, 10)
-        }
-
-        rightPanel.addView(watchHeader)
-
-        val marketTabs = TextView(this).apply {
-            text = "FOREX       COMMODITIES       CRYPTO"
-            textSize = 10f
-            setTextColor(muted)
-            setPadding(4, 4, 4, 10)
-        }
-
-        rightPanel.addView(marketTabs)
-
-        val watchItems = arrayOf(
-            "🇪🇺 EURUSD       1.08496   +0.37%",
-            "🇬🇧 GBPUSD       1.27644   +0.28%",
-            "🥇 XAUUSD       3414.76   +0.62%",
-            "₿ BTCUSD       67480.32   +1.26%",
-            "♦ ETHUSD        3248.10   +1.18%",
-            "🇯🇵 USDJPY       148.76    +0.09%",
-            "NIFTY           —         —",
-            "RELIANCE        —         —"
-        )
-
-        for (itemText in watchItems) {
-
-            val item = TextView(this).apply {
-                text = itemText
-                textSize = 11f
-                setTextColor(muted)
-                setPadding(4, 9, 4, 9)
-            }
-
-            rightPanel.addView(item)
-        }
-
-        val divider = TextView(this).apply {
-            text = "────────────────────"
-            textSize = 10f
-            setTextColor(Color.rgb(45, 60, 75))
-        }
-
-        rightPanel.addView(divider)
-
-        val signalTitle = TextView(this).apply {
-            text = "ICT SIGNALS"
+        val watchTitle = TextView(this).apply {
+            text = "WATCHLIST                 ＋"
             textSize = 13f
             setTextColor(white)
-            setTypeface(null, android.graphics.Typeface.BOLD)
-            setPadding(4, 8, 4, 8)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(4, 4, 4, 12)
         }
 
-        rightPanel.addView(signalTitle)
+        right.addView(watchTitle)
 
-        val buySignal = TextView(this).apply {
-            text = "🟢 BUY (A+)       5R\n\nEURUSD · 15m\nEntry: —   SL: —\nTP1: —   TP2: —   TP3: —\n\nWaiting for real market data"
+        val markets = TextView(this).apply {
+            text = "FOREX   STOCKS   CRYPTO"
+            textSize = 9f
+            setTextColor(muted)
+            setPadding(4, 0, 4, 10)
+        }
+
+        right.addView(markets)
+
+        val symbols = arrayOf(
+            "EURUSD     1.08496",
+            "GBPUSD     1.27644",
+            "USDJPY     148.76",
+            "XAUUSD     3414.76",
+            "BTCUSD     67480",
+            "ETHUSD     3248",
+            "NIFTY      —",
+            "RELIANCE   —"
+        )
+
+        for (s in symbols) {
+            val row = TextView(this).apply {
+                text = s
+                textSize = 11f
+                setTextColor(muted)
+                setPadding(5, 9, 5, 9)
+            }
+
+            right.addView(row)
+        }
+
+        val line = TextView(this).apply {
+            text = "────────────────"
+            textSize = 9f
+            setTextColor(border)
+        }
+
+        right.addView(line)
+
+        val signalTitle = TextView(this).apply {
+            text = "ICT SIGNAL"
+            textSize = 12f
+            setTextColor(white)
+            setTypeface(null, Typeface.BOLD)
+            setPadding(4, 10, 4, 8)
+        }
+
+        right.addView(signalTitle)
+
+        val signal = TextView(this).apply {
+            text = "WAITING FOR REAL DATA\n\nA+  •  5R\nEntry: —\nSL: —\nTP1: —\nTP2: —\nTP3: —"
             textSize = 11f
             setTextColor(green)
-            setPadding(8, 8, 8, 12)
-            setBackgroundColor(
-                Color.rgb(12, 40, 38)
-            )
+            setPadding(9, 10, 9, 10)
+            setBackgroundColor(Color.rgb(12, 38, 36))
         }
 
-        rightPanel.addView(
-            buySignal,
+        right.addView(
+            signal,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 150
             )
         )
 
-        val sellSignal = TextView(this).apply {
-            text = "🔴 SELL (B+)\n\nSignal engine waiting..."
-            textSize = 11f
-            setTextColor(red)
-            setPadding(8, 10, 8, 10)
-        }
-
-        rightPanel.addView(sellSignal)
-
-        content.addView(
-            rightPanel,
+        main.addView(
+            right,
             LinearLayout.LayoutParams(
-                285,
+                260,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
 
         root.addView(
-            content,
+            main,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 0,
@@ -445,17 +351,14 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // =========================================================
-        // BOTTOM NAVIGATION
-        // =========================================================
-
+        // BOTTOM BAR
         val bottom = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setBackgroundColor(panel)
         }
 
-        val navItems = arrayOf(
+        val nav = arrayOf(
             "⌂\nHome",
             "▣\nChart",
             "◎\nSignals",
@@ -465,14 +368,14 @@ class MainActivity : AppCompatActivity() {
             "•••\nMore"
         )
 
-        for (navText in navItems) {
+        for (itemText in nav) {
 
-            val nav = TextView(this).apply {
-                text = navText
-                textSize = 10f
+            val item = TextView(this).apply {
+                text = itemText
+                textSize = 9f
                 gravity = Gravity.CENTER
                 setTextColor(
-                    if (navText.contains("Chart"))
+                    if (itemText.contains("Chart"))
                         blue
                     else
                         muted
@@ -480,10 +383,10 @@ class MainActivity : AppCompatActivity() {
             }
 
             bottom.addView(
-                nav,
+                item,
                 LinearLayout.LayoutParams(
                     0,
-                    58,
+                    55,
                     1f
                 )
             )
@@ -493,7 +396,7 @@ class MainActivity : AppCompatActivity() {
             bottom,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                58
+                55
             )
         )
 
