@@ -24,16 +24,17 @@ class CandlestickChartView(context: Context) : View(context) {
     private val downPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val crosshairPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val boxPaint = Paint(Paint.ANTI_ALIAS_FLAG)
 
     private val candles = mutableListOf<Candle>()
 
     private var zoom = 1f
     private var offsetX = 0f
 
-    private var lastX = 0f
     private var crossX = -1f
     private var crossY = -1f
 
+    private var lastX = 0f
     private var dragging = false
 
     private val scaleDetector =
@@ -50,7 +51,6 @@ class CandlestickChartView(context: Context) : View(context) {
                     zoom *= detector.scaleFactor
                     zoom = zoom.coerceIn(0.45f, 5f)
 
-                    // Zoom around finger position
                     val focusX = detector.focusX
 
                     offsetX =
@@ -67,9 +67,7 @@ class CandlestickChartView(context: Context) : View(context) {
 
     init {
 
-        setBackgroundColor(
-            Color.rgb(7, 12, 18)
-        )
+        setBackgroundColor(Color.rgb(7, 12, 18))
 
         gridPaint.color =
             Color.rgb(27, 37, 49)
@@ -79,7 +77,7 @@ class CandlestickChartView(context: Context) : View(context) {
         textPaint.color =
             Color.rgb(145, 158, 175)
 
-        textPaint.textSize = 15f
+        textPaint.textSize = 14f
 
         upPaint.color =
             Color.rgb(22, 190, 145)
@@ -88,7 +86,7 @@ class CandlestickChartView(context: Context) : View(context) {
             Color.rgb(235, 65, 85)
 
         crosshairPaint.color =
-            Color.rgb(105, 120, 140)
+            Color.rgb(110, 125, 145)
 
         crosshairPaint.strokeWidth = 1f
 
@@ -99,7 +97,11 @@ class CandlestickChartView(context: Context) : View(context) {
             )
 
         labelPaint.color = Color.WHITE
-        labelPaint.textSize = 13f
+        labelPaint.textSize = 12f
+
+        boxPaint.style = Paint.Style.FILL
+        boxPaint.color =
+            Color.rgb(25, 34, 46)
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -115,14 +117,11 @@ class CandlestickChartView(context: Context) : View(context) {
         } else {
 
             drawCandles(canvas)
-            drawDynamicPriceScale(canvas)
-            drawDynamicTimeScale(canvas)
+            drawPriceScale(canvas)
+            drawTimeScale(canvas)
         }
 
-        if (
-            crossX >= 0f &&
-            crossY >= 0f
-        ) {
+        if (crossX >= 0f && crossY >= 0f) {
 
             drawCrosshair(canvas)
             drawCrosshairLabels(canvas)
@@ -131,13 +130,14 @@ class CandlestickChartView(context: Context) : View(context) {
         drawBranding(canvas)
     }
 
+    // =========================
+    // GRID
+    // =========================
+
     private fun drawGrid(canvas: Canvas) {
 
         val verticalSpacing =
             100f * zoom
-
-        val horizontalSpacing =
-            75f
 
         var x =
             offsetX % verticalSpacing
@@ -170,16 +170,20 @@ class CandlestickChartView(context: Context) : View(context) {
                 gridPaint
             )
 
-            y += horizontalSpacing
+            y += 75f
         }
     }
+
+    // =========================
+    // EMPTY STATE
+    // =========================
 
     private fun drawEmptyChart(canvas: Canvas) {
 
         textPaint.textAlign =
             Paint.Align.CENTER
 
-        textPaint.textSize = 27f
+        textPaint.textSize = 25f
 
         canvas.drawText(
             "LIVE MARKET CHART",
@@ -188,24 +192,28 @@ class CandlestickChartView(context: Context) : View(context) {
             textPaint
         )
 
-        textPaint.textSize = 17f
+        textPaint.textSize = 16f
 
         canvas.drawText(
             "Waiting for real OHLC market data...",
             width / 2f,
-            height / 2f + 15f,
+            height / 2f + 12f,
             textPaint
         )
 
-        textPaint.textSize = 14f
+        textPaint.textSize = 13f
 
         canvas.drawText(
             "No demo candles",
             width / 2f,
-            height / 2f + 45f,
+            height / 2f + 40f,
             textPaint
         )
     }
+
+    // =========================
+    // CANDLES
+    // =========================
 
     private fun drawCandles(canvas: Canvas) {
 
@@ -220,23 +228,14 @@ class CandlestickChartView(context: Context) : View(context) {
         for (candle in candles) {
 
             highest =
-                max(
-                    highest,
-                    candle.high
-                )
+                max(highest, candle.high)
 
             lowest =
-                min(
-                    lowest,
-                    candle.low
-                )
+                min(lowest, candle.low)
         }
 
         val range =
-            max(
-                highest - lowest,
-                0.000001f
-            )
+            max(highest - lowest, 0.000001f)
 
         val candleWidth =
             (15f * zoom)
@@ -250,7 +249,6 @@ class CandlestickChartView(context: Context) : View(context) {
             candleWidth + gap
 
         val chartTop = 25f
-
         val chartBottom =
             height - 55f
 
@@ -273,9 +271,7 @@ class CandlestickChartView(context: Context) : View(context) {
             if (
                 x + candleWidth < 0f ||
                 x > width
-            ) {
-                continue
-            }
+            ) continue
 
             val highY =
                 chartTop +
@@ -314,6 +310,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 x + candleWidth / 2f
 
             // Wick
+
             canvas.drawLine(
                 centerX,
                 highY,
@@ -323,6 +320,7 @@ class CandlestickChartView(context: Context) : View(context) {
             )
 
             // Body
+
             val top =
                 min(openY, closeY)
 
@@ -333,18 +331,17 @@ class CandlestickChartView(context: Context) : View(context) {
                 x,
                 top,
                 x + candleWidth,
-                max(
-                    bottom,
-                    top + 2f
-                ),
+                max(bottom, top + 2f),
                 paint
             )
         }
     }
 
-    private fun drawDynamicPriceScale(
-        canvas: Canvas
-    ) {
+    // =========================
+    // PRICE SCALE
+    // =========================
+
+    private fun drawPriceScale(canvas: Canvas) {
 
         if (candles.isEmpty()) return
 
@@ -357,28 +354,19 @@ class CandlestickChartView(context: Context) : View(context) {
         for (candle in candles) {
 
             highest =
-                max(
-                    highest,
-                    candle.high
-                )
+                max(highest, candle.high)
 
             lowest =
-                min(
-                    lowest,
-                    candle.low
-                )
+                min(lowest, candle.low)
         }
 
         val range =
-            max(
-                highest - lowest,
-                0.000001f
-            )
+            max(highest - lowest, 0.000001f)
 
         textPaint.textAlign =
             Paint.Align.RIGHT
 
-        textPaint.textSize = 14f
+        textPaint.textSize = 13f
 
         val levels = 6
 
@@ -405,21 +393,25 @@ class CandlestickChartView(context: Context) : View(context) {
 
             canvas.drawText(
                 label,
-                width - 8f,
+                width - 7f,
                 y,
                 textPaint
             )
         }
     }
 
-    private fun drawDynamicTimeScale(
-        canvas: Canvas
-    ) {
+    // =========================
+    // TIME SCALE
+    // =========================
+
+    private fun drawTimeScale(canvas: Canvas) {
+
+        if (candles.isEmpty()) return
 
         textPaint.textAlign =
             Paint.Align.CENTER
 
-        textPaint.textSize = 13f
+        textPaint.textSize = 12f
 
         val candleWidth =
             (15f * zoom)
@@ -435,11 +427,12 @@ class CandlestickChartView(context: Context) : View(context) {
         val visibleStep =
             max(
                 1,
-                (80f / step).toInt()
+                (90f / step).toInt()
             )
 
         for (
-            i in candles.indices step visibleStep
+            i in candles.indices
+            step visibleStep
         ) {
 
             val x =
@@ -451,22 +444,20 @@ class CandlestickChartView(context: Context) : View(context) {
             if (
                 x < 0f ||
                 x > width
-            ) {
-                continue
-            }
+            ) continue
 
             canvas.drawText(
-                formatTime(candles[i].time),
+                formatTime(
+                    candles[i].time
+                ),
                 x,
-                height - 15f,
+                height - 14f,
                 textPaint
             )
         }
     }
 
-    private fun formatTime(
-        time: Long
-    ): String {
+    private fun formatTime(time: Long): String {
 
         val sdf =
             java.text.SimpleDateFormat(
@@ -479,9 +470,11 @@ class CandlestickChartView(context: Context) : View(context) {
         )
     }
 
-    private fun drawCrosshair(
-        canvas: Canvas
-    ) {
+    // =========================
+    // CROSSHAIR
+    // =========================
+
+    private fun drawCrosshair(canvas: Canvas) {
 
         canvas.drawLine(
             crossX,
@@ -500,28 +493,12 @@ class CandlestickChartView(context: Context) : View(context) {
         )
     }
 
-    private fun drawCrosshairLabels(
-        canvas: Canvas
-    ) {
-
-        val priceText =
-            "Price"
-
-        val timeText =
-            "Time"
-
-        val boxPaint =
-            Paint(Paint.ANTI_ALIAS_FLAG)
-
-        boxPaint.color =
-            Color.rgb(25, 34, 46)
-
-        boxPaint.style =
-            Paint.Style.FILL
+    private fun drawCrosshairLabels(canvas: Canvas) {
 
         // Price label
+
         canvas.drawRect(
-            width - 75f,
+            width - 78f,
             crossY - 14f,
             width.toFloat(),
             crossY + 14f,
@@ -532,13 +509,14 @@ class CandlestickChartView(context: Context) : View(context) {
             Paint.Align.CENTER
 
         canvas.drawText(
-            priceText,
-            width - 37f,
-            crossY + 5f,
+            "Price",
+            width - 39f,
+            crossY + 4f,
             labelPaint
         )
 
         // Time label
+
         canvas.drawRect(
             crossX - 32f,
             height - 31f,
@@ -548,32 +526,38 @@ class CandlestickChartView(context: Context) : View(context) {
         )
 
         canvas.drawText(
-            timeText,
+            "Time",
             crossX,
             height - 11f,
             labelPaint
         )
     }
 
-    private fun drawBranding(
-        canvas: Canvas
-    ) {
+    // =========================
+    // BRANDING
+    // =========================
+
+    private fun drawBranding(canvas: Canvas) {
 
         textPaint.textAlign =
             Paint.Align.LEFT
 
-        textPaint.textSize = 14f
+        textPaint.textSize = 13f
 
         textPaint.color =
-            Color.rgb(90, 105, 120)
+            Color.rgb(80, 96, 112)
 
         canvas.drawText(
             "DA",
-            14f,
-            height - 43f,
+            12f,
+            height - 42f,
             textPaint
         )
     }
+
+    // =========================
+    // TOUCH
+    // =========================
 
     override fun onTouchEvent(
         event: MotionEvent
@@ -624,6 +608,9 @@ class CandlestickChartView(context: Context) : View(context) {
 
                 dragging = false
 
+                crossX = event.x
+                crossY = event.y
+
                 invalidate()
 
                 return true
@@ -639,6 +626,10 @@ class CandlestickChartView(context: Context) : View(context) {
 
         return true
     }
+
+    // =========================
+    // MARKET DATA API
+    // =========================
 
     fun setCandles(
         newCandles: List<Candle>
