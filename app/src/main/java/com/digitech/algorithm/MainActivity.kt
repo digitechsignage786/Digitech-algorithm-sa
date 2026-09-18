@@ -769,5 +769,243 @@ class MainActivity : AppCompatActivity() {
                             "high",
                             Double.NaN
                         )
+                        val low =
+                        item.optDouble(
+                            "low",
+                            Double.NaN
+                        )
 
-             
+                    val close =
+                        item.optDouble(
+                            "close",
+                            Double.NaN
+                        )
+
+                    if (
+                        !open.isNaN() &&
+                        !high.isNaN() &&
+                        !low.isNaN() &&
+                        !close.isNaN()
+                    ) {
+
+                        candleList.add(
+                            Candle(
+                                time = time,
+                                open = open.toFloat(),
+                                high = high.toFloat(),
+                                low = low.toFloat(),
+                                close = close.toFloat()
+                            )
+                        )
+                    }
+                }
+
+                runOnUiThread {
+
+                    if (candleList.isNotEmpty()) {
+
+                        chart.setCandles(
+                            candleList
+                        )
+
+                        val latest =
+                            candleList.last().close
+
+                        priceText.text =
+                            formatPrice(latest)
+
+                        if (
+                            candleList.size >= 2
+                        ) {
+
+                            val previous =
+                                candleList[
+                                    candleList.size - 2
+                                ].close
+
+                            val difference =
+                                latest - previous
+
+                            val percent =
+                                if (previous != 0f) {
+                                    difference /
+                                            previous *
+                                            100f
+                                } else {
+                                    0f
+                                }
+
+                            changeText.text =
+                                String.format(
+                                    Locale.US,
+                                    "%+.2f%%",
+                                    percent
+                                )
+
+                            changeText.setTextColor(
+                                if (difference >= 0f) {
+                                    Color.rgb(
+                                        22,
+                                        190,
+                                        145
+                                    )
+                                } else {
+                                    Color.rgb(
+                                        235,
+                                        65,
+                                        85
+                                    )
+                                }
+                            )
+                        }
+
+                        statusText.text = "LIVE"
+                        statusText.setTextColor(Color.GREEN)
+
+                    } else {
+
+                        statusText.text = "NO DATA"
+                        statusText.setTextColor(Color.RED)
+                    }
+                }
+
+            } catch (
+                e: Exception
+            ) {
+
+                runOnUiThread {
+
+                    statusText.text = "OFFLINE"
+                    statusText.setTextColor(Color.RED)
+
+                    priceText.text = "--"
+                    changeText.text = "--"
+
+                    chart.clearCandles()
+                }
+
+            } finally {
+
+                connection?.disconnect()
+            }
+        }
+    }
+
+    private fun convertSymbolForApi(
+        symbol: String
+    ): String {
+
+        return when (symbol) {
+
+            "EUR/USD" -> "EUR/USD"
+            "GBP/USD" -> "GBP/USD"
+            "USD/JPY" -> "USD/JPY"
+            "AUD/USD" -> "AUD/USD"
+            "USD/CAD" -> "USD/CAD"
+            "USD/CHF" -> "USD/CHF"
+
+            "XAU/USD" -> "XAU/USD"
+
+            "BTC/USD" -> "BTC/USD"
+            "ETH/USD" -> "ETH/USD"
+
+            "AAPL" -> "AAPL"
+            "MSFT" -> "MSFT"
+            "TSLA" -> "TSLA"
+            "NVDA" -> "NVDA"
+            "AMZN" -> "AMZN"
+
+            else -> symbol
+        }
+    }
+
+    private fun intervalFor(
+        timeframe: String
+    ): String {
+
+        return when (timeframe) {
+
+            "1m" -> "1min"
+            "5m" -> "5min"
+            "15m" -> "15min"
+            "30m" -> "30min"
+            "1H" -> "1h"
+            "4H" -> "4h"
+            "1D" -> "1day"
+
+            else -> "5min"
+        }
+    }
+
+    private fun parseTime(
+        value: String
+    ): Long {
+
+        val formats =
+            arrayOf(
+                "yyyy-MM-dd HH:mm:ss",
+                "yyyy-MM-dd HH:mm",
+                "yyyy-MM-dd"
+            )
+
+        for (format in formats) {
+
+            try {
+
+                val sdf =
+                    SimpleDateFormat(
+                        format,
+                        Locale.US
+                    )
+
+                sdf.timeZone =
+                    TimeZone.getDefault()
+
+                val date =
+                    sdf.parse(value)
+
+                if (date != null) {
+                    return date.time
+                }
+
+            } catch (
+                ignored: Exception
+            ) {
+            }
+        }
+
+        return System.currentTimeMillis()
+    }
+
+    private fun formatPrice(
+        price: Float
+    ): String {
+
+        return when {
+
+            price >= 1000f -> {
+                String.format(
+                    Locale.US,
+                    "%.2f",
+                    price
+                )
+            }
+
+            price >= 10f -> {
+                String.format(
+                    Locale.US,
+                    "%.3f",
+                    price
+                )
+            }
+
+            else -> {
+                String.format(
+                    Locale.US,
+                    "%.5f",
+                    price
+                )
+            }
+        }
+    }
+}
