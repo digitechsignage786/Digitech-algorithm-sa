@@ -1,17 +1,19 @@
 package com.digitech.algorithm
 
-import android.content.Context
 import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.View
-import android.widget.*
+import android.widget.LinearLayout
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
+import java.net.URLEncoder
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Locale
+import java.util.TimeZone
 import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
@@ -50,22 +52,16 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        window.setStatusBarColor(Color.rgb(10, 13, 18))
-        window.setNavigationBarColor(Color.rgb(10, 13, 18))
+        window.statusBarColor = Color.rgb(10, 13, 18)
+        window.navigationBarColor = Color.rgb(10, 13, 18)
 
         loadFavourites()
         buildUI()
         refreshToolbar()
 
-        // No demo candles are loaded.
         chart.clearCandles()
-
         loadMarketData()
     }
-
-    // ---------------------------------------------------------
-    // MAIN UI
-    // ---------------------------------------------------------
 
     private fun buildUI() {
 
@@ -73,23 +69,23 @@ class MainActivity : AppCompatActivity() {
         root.orientation = LinearLayout.VERTICAL
         root.setBackgroundColor(Color.rgb(10, 13, 18))
 
-        // TOP BAR
         val topBar = LinearLayout(this)
         topBar.orientation = LinearLayout.HORIZONTAL
         topBar.gravity = Gravity.CENTER_VERTICAL
-        topBar.setPadding(12, 8, 12, 8)
+        topBar.setPadding(10, 6, 10, 6)
         topBar.setBackgroundColor(Color.rgb(18, 22, 29))
 
         val logo = TextView(this)
         logo.text = "DA"
-        logo.textSize = 20f
+        logo.textSize = 18f
         logo.setTextColor(Color.WHITE)
         logo.setTypeface(null, android.graphics.Typeface.BOLD)
         logo.gravity = Gravity.CENTER
 
-        val logoParams = LinearLayout.LayoutParams(48, 48)
-        logoParams.setMargins(0, 0, 10, 0)
-        topBar.addView(logo, logoParams)
+        topBar.addView(
+            logo,
+            LinearLayout.LayoutParams(44, 44)
+        )
 
         symbolText = TextView(this)
         symbolText.text = selectedSymbol
@@ -97,7 +93,7 @@ class MainActivity : AppCompatActivity() {
         symbolText.setTextColor(Color.WHITE)
         symbolText.setTypeface(null, android.graphics.Typeface.BOLD)
         symbolText.gravity = Gravity.CENTER_VERTICAL
-        symbolText.setPadding(8, 0, 8, 0)
+        symbolText.setPadding(12, 0, 8, 0)
 
         symbolText.setOnClickListener {
             showSymbolDialog()
@@ -114,10 +110,9 @@ class MainActivity : AppCompatActivity() {
 
         val search = TextView(this)
         search.text = "⌕"
-        search.textSize = 26f
+        search.textSize = 25f
         search.setTextColor(Color.LTGRAY)
         search.gravity = Gravity.CENTER
-        search.setPadding(12, 0, 12, 0)
 
         search.setOnClickListener {
             showSymbolDialog()
@@ -125,43 +120,36 @@ class MainActivity : AppCompatActivity() {
 
         topBar.addView(
             search,
-            LinearLayout.LayoutParams(
-                48,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
+            LinearLayout.LayoutParams(44, 44)
         )
 
-        val tools = TextView(this)
-        tools.text = "⋮"
-        tools.textSize = 28f
-        tools.setTextColor(Color.WHITE)
-        tools.gravity = Gravity.CENTER
+        val more = TextView(this)
+        more.text = "⋮"
+        more.textSize = 27f
+        more.setTextColor(Color.WHITE)
+        more.gravity = Gravity.CENTER
 
-        tools.setOnClickListener {
+        more.setOnClickListener {
             showTools()
         }
 
         topBar.addView(
-            tools,
-            LinearLayout.LayoutParams(
-                42,
-                LinearLayout.LayoutParams.MATCH_PARENT
-            )
+            more,
+            LinearLayout.LayoutParams(40, 44)
         )
 
         root.addView(
             topBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                58
+                54
             )
         )
 
-        // TIMEFRAME BAR
         val timeframeBar = LinearLayout(this)
         timeframeBar.orientation = LinearLayout.HORIZONTAL
         timeframeBar.gravity = Gravity.CENTER_VERTICAL
-        timeframeBar.setPadding(8, 4, 8, 4)
+        timeframeBar.setPadding(5, 3, 5, 3)
         timeframeBar.setBackgroundColor(Color.rgb(14, 18, 24))
 
         val timeframes = arrayOf(
@@ -175,16 +163,19 @@ class MainActivity : AppCompatActivity() {
         )
 
         for (tf in timeframes) {
+
             val button = TextView(this)
             button.text = tf
             button.textSize = 12f
             button.gravity = Gravity.CENTER
             button.setTextColor(Color.LTGRAY)
-            button.setPadding(12, 8, 12, 8)
+            button.setPadding(11, 7, 11, 7)
 
             button.setOnClickListener {
+
                 selectedTimeframe = tf
                 timeframeText.text = tf
+
                 loadMarketData()
             }
 
@@ -205,15 +196,14 @@ class MainActivity : AppCompatActivity() {
             timeframeBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                42
+                40
             )
         )
 
-        // OHLC / STATUS BAR
         val infoBar = LinearLayout(this)
         infoBar.orientation = LinearLayout.HORIZONTAL
         infoBar.gravity = Gravity.CENTER_VERTICAL
-        infoBar.setPadding(10, 4, 10, 4)
+        infoBar.setPadding(10, 2, 10, 2)
         infoBar.setBackgroundColor(Color.rgb(11, 15, 20))
 
         priceText = TextView(this)
@@ -232,28 +222,28 @@ class MainActivity : AppCompatActivity() {
 
         changeText = TextView(this)
         changeText.text = "--"
-        changeText.textSize = 13f
+        changeText.textSize = 12f
         changeText.setTextColor(Color.LTGRAY)
         changeText.gravity = Gravity.CENTER
 
         infoBar.addView(
             changeText,
             LinearLayout.LayoutParams(
-                100,
+                90,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
 
         statusText = TextView(this)
         statusText.text = "LIVE"
-        statusText.textSize = 11f
+        statusText.textSize = 10f
         statusText.setTextColor(Color.GREEN)
         statusText.gravity = Gravity.CENTER
 
         infoBar.addView(
             statusText,
             LinearLayout.LayoutParams(
-                60,
+                62,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
@@ -262,40 +252,38 @@ class MainActivity : AppCompatActivity() {
             infoBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                34
+                32
             )
         )
 
-        // MAIN AREA
         val mainArea = LinearLayout(this)
         mainArea.orientation = LinearLayout.HORIZONTAL
         mainArea.setBackgroundColor(Color.rgb(7, 10, 14))
 
-        // LEFT TOOLBAR
         toolbar = LinearLayout(this)
         toolbar.orientation = LinearLayout.VERTICAL
         toolbar.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
-        toolbar.setPadding(3, 6, 3, 6)
+        toolbar.setPadding(2, 5, 2, 5)
         toolbar.setBackgroundColor(Color.rgb(13, 17, 23))
 
         addToolbarButton("＋") {
-            chart.setDrawingTool(CandlestickChartView.DrawingTool.CROSSHAIR)
+            chart.setDrawingTool(DrawingTool.CROSSHAIR)
         }
 
         addToolbarButton("╱") {
-            chart.setDrawingTool(CandlestickChartView.DrawingTool.TREND_LINE)
+            chart.setDrawingTool(DrawingTool.TREND_LINE)
         }
 
         addToolbarButton("—") {
-            chart.setDrawingTool(CandlestickChartView.DrawingTool.HORIZONTAL_LINE)
+            chart.setDrawingTool(DrawingTool.HORIZONTAL_LINE)
         }
 
         addToolbarButton("□") {
-            chart.setDrawingTool(CandlestickChartView.DrawingTool.RECTANGLE)
+            chart.setDrawingTool(DrawingTool.RECTANGLE)
         }
 
         addToolbarButton("↔") {
-            chart.setDrawingTool(CandlestickChartView.DrawingTool.MEASURE)
+            chart.setDrawingTool(DrawingTool.MEASURE)
         }
 
         addToolbarButton("×") {
@@ -310,9 +298,7 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // CHART
         chart = CandlestickChartView(this)
-        chart.setBackgroundColor(Color.rgb(7, 10, 14))
 
         mainArea.addView(
             chart,
@@ -323,10 +309,9 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // RIGHT WATCHLIST
         watchlist = LinearLayout(this)
         watchlist.orientation = LinearLayout.VERTICAL
-        watchlist.setPadding(5, 6, 5, 6)
+        watchlist.setPadding(4, 5, 4, 5)
         watchlist.setBackgroundColor(Color.rgb(13, 17, 23))
 
         val watchTitle = TextView(this)
@@ -334,12 +319,10 @@ class MainActivity : AppCompatActivity() {
         watchTitle.textSize = 10f
         watchTitle.setTextColor(Color.GRAY)
         watchTitle.gravity = Gravity.CENTER
+
         watchlist.addView(
             watchTitle,
-            LinearLayout.LayoutParams(
-                72,
-                30
-            )
+            LinearLayout.LayoutParams(76, 28)
         )
 
         addWatchItem("EUR/USD")
@@ -351,7 +334,7 @@ class MainActivity : AppCompatActivity() {
         mainArea.addView(
             watchlist,
             LinearLayout.LayoutParams(
-                78,
+                80,
                 LinearLayout.LayoutParams.MATCH_PARENT
             )
         )
@@ -365,20 +348,19 @@ class MainActivity : AppCompatActivity() {
             )
         )
 
-        // ICT SIGNAL BAR
         val signalBox = LinearLayout(this)
         signalBox.orientation = LinearLayout.VERTICAL
-        signalBox.setPadding(12, 6, 12, 6)
+        signalBox.setPadding(12, 5, 12, 5)
         signalBox.setBackgroundColor(Color.rgb(17, 22, 29))
 
         val signalTitle = TextView(this)
         signalTitle.text = "ICT AUTO ANALYSIS"
-        signalTitle.textSize = 11f
+        signalTitle.textSize = 10f
         signalTitle.setTextColor(Color.LTGRAY)
 
         val signal = TextView(this)
         signal.text = "Waiting for live market data..."
-        signal.textSize = 13f
+        signal.textSize = 12f
         signal.setTextColor(Color.WHITE)
 
         signalBox.addView(signalTitle)
@@ -388,11 +370,10 @@ class MainActivity : AppCompatActivity() {
             signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                52
+                48
             )
         )
 
-        // BOTTOM BAR
         val bottomBar = LinearLayout(this)
         bottomBar.orientation = LinearLayout.HORIZONTAL
         bottomBar.gravity = Gravity.CENTER
@@ -407,27 +388,24 @@ class MainActivity : AppCompatActivity() {
             bottomBar,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                48
+                46
             )
         )
 
         setContentView(root)
     }
 
-    // ---------------------------------------------------------
-    // TOOLBAR
-    // ---------------------------------------------------------
-
     private fun addToolbarButton(
         label: String,
         action: () -> Unit
     ) {
+
         val button = TextView(this)
+
         button.text = label
-        button.textSize = 19f
+        button.textSize = 18f
         button.setTextColor(Color.LTGRAY)
         button.gravity = Gravity.CENTER
-        button.setPadding(0, 8, 0, 8)
 
         button.setOnClickListener {
             action()
@@ -435,10 +413,7 @@ class MainActivity : AppCompatActivity() {
 
         toolbar.addView(
             button,
-            LinearLayout.LayoutParams(
-                38,
-                44
-            )
+            LinearLayout.LayoutParams(38, 43)
         )
     }
 
@@ -446,15 +421,29 @@ class MainActivity : AppCompatActivity() {
         parent: LinearLayout,
         label: String
     ) {
+
         val button = TextView(this)
+
         button.text = label
-        button.textSize = 10f
+        button.textSize = 9f
         button.setTextColor(Color.LTGRAY)
         button.gravity = Gravity.CENTER
 
         button.setOnClickListener {
-            if (label == "TOOLS") {
-                showTools()
+
+            when (label) {
+
+                "TOOLS" -> showTools()
+
+                "SIGNALS" -> showSignals()
+
+                "BACKTEST" -> showBacktest()
+
+                "CHART" -> {
+                    chart.setDrawingTool(
+                        DrawingTool.CROSSHAIR
+                    )
+                }
             }
         }
 
@@ -468,92 +457,276 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    // ---------------------------------------------------------
-    // WATCHLIST
-    // ---------------------------------------------------------
-
-    private fun addWatchItem(symbol: String) {
+    private fun addWatchItem(
+        symbol: String
+    ) {
 
         val item = TextView(this)
+
         item.text = symbol
-        item.textSize = 10f
+        item.textSize = 9f
         item.setTextColor(Color.LTGRAY)
         item.gravity = Gravity.CENTER
-        item.setPadding(2, 10, 2, 10)
+        item.setPadding(2, 8, 2, 8)
 
         item.setOnClickListener {
+
             selectedSymbol = symbol
+
             refreshToolbar()
             loadMarketData()
         }
 
         watchlist.addView(
             item,
-            LinearLayout.LayoutParams(
-                72,
-                42
-            )
+            LinearLayout.LayoutParams(76, 40)
         )
     }
 
-    // ---------------------------------------------------------
-    // MARKET DATA
-    // ---------------------------------------------------------
+    private fun showSymbolDialog() {
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Select Market")
+            .setItems(symbols) { _, which ->
+
+                selectedSymbol =
+                    symbols[which]
+
+                refreshToolbar()
+                loadMarketData()
+            }
+            .setNegativeButton(
+                "CLOSE",
+                null
+            )
+            .show()
+    }
+
+    private fun showTools() {
+
+        val items = arrayOf(
+            "Crosshair",
+            "Trend Line",
+            "Horizontal Line",
+            "Rectangle",
+            "Measure",
+            "Clear Drawings"
+        )
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("Chart Tools")
+            .setItems(items) { _, which ->
+
+                when (which) {
+
+                    0 -> chart.setDrawingTool(
+                        DrawingTool.CROSSHAIR
+                    )
+
+                    1 -> chart.setDrawingTool(
+                        DrawingTool.TREND_LINE
+                    )
+
+                    2 -> chart.setDrawingTool(
+                        DrawingTool.HORIZONTAL_LINE
+                    )
+
+                    3 -> chart.setDrawingTool(
+                        DrawingTool.RECTANGLE
+                    )
+
+                    4 -> chart.setDrawingTool(
+                        DrawingTool.MEASURE
+                    )
+
+                    5 -> chart.clearDrawings()
+                }
+            }
+            .setNegativeButton(
+                "CLOSE",
+                null
+            )
+            .show()
+    }
+
+    private fun showSignals() {
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("ICT Signals")
+            .setMessage(
+                "ICT Auto Analysis\n\n" +
+                        "Market Structure\n" +
+                        "Liquidity Sweep\n" +
+                        "BOS / MSS / CHoCH\n" +
+                        "FVG\n" +
+                        "Order Block\n" +
+                        "Premium / Discount\n" +
+                        "Entry / SL / TP\n\n" +
+                        "Waiting for sufficient live OHLC data."
+            )
+            .setPositiveButton("OK", null)
+            .show()
+    }
+
+    private fun showBacktest() {
+
+        android.app.AlertDialog.Builder(this)
+            .setTitle("ICT Backtest")
+            .setMessage(
+                "Symbol: $selectedSymbol\n" +
+                        "Timeframe: $selectedTimeframe\n\n" +
+                        "Backtest engine will use real OHLC data."
+            )
+            .setPositiveButton("CLOSE", null)
+            .show()
+    }
+
+    private fun refreshToolbar() {
+
+        if (::symbolText.isInitialized) {
+            symbolText.text = selectedSymbol
+        }
+
+        if (::timeframeText.isInitialized) {
+            timeframeText.text = selectedTimeframe
+        }
+    }
+
+    private fun loadFavourites() {
+
+        favourites.clear()
+
+        val prefs =
+            getSharedPreferences(
+                "digitech_preferences",
+                MODE_PRIVATE
+            )
+
+        val saved =
+            prefs.getString(
+                "favourites",
+                ""
+            )
+
+        if (!saved.isNullOrBlank()) {
+
+            favourites.addAll(
+                saved.split(",")
+                    .filter {
+                        it.isNotBlank()
+                    }
+            )
+        }
+    }
+
+    private fun saveFavourites() {
+
+        getSharedPreferences(
+            "digitech_preferences",
+            MODE_PRIVATE
+        )
+            .edit()
+            .putString(
+                "favourites",
+                favourites.joinToString(",")
+            )
+            .apply()
+    }
 
     private fun loadMarketData() {
+
+        if (!::chart.isInitialized) {
+            return
+        }
 
         statusText.text = "LIVE"
         statusText.setTextColor(Color.YELLOW)
 
+        priceText.text = "--"
+        changeText.text = "--"
+
         chart.clearCandles()
 
-        val apiKey = BuildConfig.TWELVE_DATA_API_KEY
+        val apiKey =
+            BuildConfig.TWELVE_DATA_API_KEY
 
         if (apiKey.isBlank()) {
+
             statusText.text = "NO KEY"
             statusText.setTextColor(Color.RED)
+
             return
         }
 
-        val symbol = convertSymbolForApi(selectedSymbol)
-        val interval = intervalFor(selectedTimeframe)
+        val symbol =
+            convertSymbolForApi(
+                selectedSymbol
+            )
+
+        val interval =
+            intervalFor(
+                selectedTimeframe
+            )
 
         thread {
 
+            var connection:
+                    HttpURLConnection? = null
+
             try {
+
+                val encodedSymbol =
+                    URLEncoder.encode(
+                        symbol,
+                        "UTF-8"
+                    )
+
+                val encodedKey =
+                    URLEncoder.encode(
+                        apiKey,
+                        "UTF-8"
+                    )
 
                 val urlString =
                     "https://api.twelvedata.com/time_series" +
-                            "?symbol=${java.net.URLEncoder.encode(symbol, "UTF-8")}" +
+                            "?symbol=$encodedSymbol" +
                             "&interval=$interval" +
                             "&outputsize=120" +
-                            "&apikey=${java.net.URLEncoder.encode(apiKey, "UTF-8")}"
+                            "&apikey=$encodedKey"
 
-                val connection =
-                    URL(urlString).openConnection() as HttpURLConnection
+                connection =
+                    URL(urlString)
+                        .openConnection()
+                            as HttpURLConnection
 
                 connection.requestMethod = "GET"
                 connection.connectTimeout = 15000
                 connection.readTimeout = 15000
 
-                val responseCode = connection.responseCode
-
-                if (responseCode != 200) {
-                    throw Exception("HTTP $responseCode")
+                if (connection.responseCode != 200) {
+                    throw Exception(
+                        "HTTP ${connection.responseCode}"
+                    )
                 }
 
                 val response =
                     connection.inputStream
                         .bufferedReader()
-                        .use { it.readText() }
+                        .use {
+                            it.readText()
+                        }
 
-                connection.disconnect()
+                val json =
+                    JSONObject(response)
 
-                val json = JSONObject(response)
-
-                if (json.has("status") &&
-                    json.optString("status") == "error"
+                if (
+                    json.optString("status")
+                        .equals(
+                            "error",
+                            ignoreCase = true
+                        )
                 ) {
+
                     throw Exception(
                         json.optString(
                             "message",
@@ -562,171 +735,39 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
 
-                val values = json.optJSONArray("values")
-                    ?: throw Exception("No market data")
+                val values =
+                    json.optJSONArray("values")
+                        ?: throw Exception(
+                            "No market data"
+                        )
 
-                val candles =
-                    mutableListOf<CandlestickChartView.Candle>()
+                val candleList =
+                    mutableListOf<Candle>()
 
-                for (i in values.length() - 1 downTo 0) {
+                for (
+                    i in values.length() - 1 downTo 0
+                ) {
 
-                    val obj = values.getJSONObject(i)
+                    val item =
+                        values.getJSONObject(i)
 
                     val time =
                         parseTime(
-                            obj.optString("datetime")
+                            item.optString(
+                                "datetime"
+                            )
                         )
 
                     val open =
-                        obj.optDouble("open", Double.NaN)
+                        item.optDouble(
+                            "open",
+                            Double.NaN
+                        )
 
                     val high =
-                        obj.optDouble("high", Double.NaN)
-
-                    val low =
-                        obj.optDouble("low", Double.NaN)
-
-                    val close =
-                        obj.optDouble("close", Double.NaN)
-
-                    if (
-                        !open.isNaN() &&
-                        !high.isNaN() &&
-                        !low.isNaN() &&
-                        !close.isNaN()
-                    ) {
-
-                        candles.add(
-                            CandlestickChartView.Candle(
-                                time = time,
-                                open = open.toFloat(),
-                                high = high.toFloat(),
-                                low = low.toFloat(),
-                                close = close.toFloat()
-                            )
+                        item.optDouble(
+                            "high",
+                            Double.NaN
                         )
-                    }
-                }
 
-                runOnUiThread {
-
-                    if (candles.isNotEmpty()) {
-
-                        chart.setCandles(candles)
-
-                        val last =
-                            candles.last().close
-
-                        priceText.text =
-                            String.format(
-                                Locale.US,
-                                "%.5f",
-                                last
-                            )
-
-                        statusText.text = "LIVE"
-                        statusText.setTextColor(Color.GREEN)
-
-                    } else {
-
-                        statusText.text = "NO DATA"
-                        statusText.setTextColor(Color.RED)
-                    }
-                }
-
-            } catch (e: Exception) {
-
-                runOnUiThread {
-
-                    statusText.text = "OFFLINE"
-                    statusText.setTextColor(Color.RED)
-
-                    priceText.text = "--"
-                    changeText.text = "--"
-
-                    chart.clearCandles()
-                }
-            }
-        }
-    }
-
-    private fun convertSymbolForApi(symbol: String): String {
-
-        return when (symbol) {
-
-            "EUR/USD" -> "EUR/USD"
-            "GBP/USD" -> "GBP/USD"
-            "USD/JPY" -> "USD/JPY"
-            "AUD/USD" -> "AUD/USD"
-            "USD/CAD" -> "USD/CAD"
-            "USD/CHF" -> "USD/CHF"
-
-            "XAU/USD" -> "XAU/USD"
-
-            "BTC/USD" -> "BTC/USD"
-            "ETH/USD" -> "ETH/USD"
-
-            "AAPL" -> "AAPL"
-            "MSFT" -> "MSFT"
-            "TSLA" -> "TSLA"
-            "NVDA" -> "NVDA"
-            "AMZN" -> "AMZN"
-
-            else -> symbol
-        }
-    }
-
-    // ---------------------------------------------------------
-    // INTERVAL
-    // ---------------------------------------------------------
-
-    private fun intervalFor(
-        timeframe: String
-    ): String {
-
-        return when (timeframe) {
-
-            "1m" -> "1min"
-            "5m" -> "5min"
-            "15m" -> "15min"
-            "30m" -> "30min"
-            "1H" -> "1h"
-            "4H" -> "4h"
-            "1D" -> "1day"
-
-            else -> "5min"
-        }
-    }
-
-    // ---------------------------------------------------------
-    // TIME PARSER
-    // ---------------------------------------------------------
-
-    private fun parseTime(
-        value: String
-    ): Long {
-
-        val formats = arrayOf(
-            "yyyy-MM-dd HH:mm:ss",
-            "yyyy-MM-dd HH:mm",
-            "yyyy-MM-dd"
-        )
-
-        for (format in formats) {
-
-            try {
-
-                val sdf =
-                    SimpleDateFormat(
-                        format,
-                        Locale.US
-                    )
-
-                sdf.timeZone =
-                    TimeZone.getDefault()
-
-                val date =
-                    sdf.parse(value)
-
-                if (date != null) {
-            
+             
