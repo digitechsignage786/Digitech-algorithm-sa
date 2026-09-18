@@ -13,6 +13,16 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
+
+        buildConfigField(
+            "String",
+            "TWELVE_DATA_API_KEY",
+            "\"${project.findProperty("TWELVE_DATA_API_KEY") ?: ""}\""
+        )
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     compileOptions {
@@ -23,13 +33,13 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-}
 
-kotlin {
-    jvmToolchain(17)
-}
+    kotlin {
+        jvmToolchain(17)
+    }
 
-dependencies {
-    implementation("androidx.core:core-ktx:1.15.0")
-    implementation("androidx.appcompat:appcompat:1.7.0")
+    dependencies {
+        implementation("androidx.core:core-ktx:1.15.0")
+        implementation("androidx.appcompat:appcompat:1.7.0")
+    }
 }
