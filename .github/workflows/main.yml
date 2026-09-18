@@ -23,9 +23,11 @@ jobs:
           gradle-version: "8.9"
 
       - name: Build APK
-        run: gradle --no-daemon assembleDebug
         env:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+        run: |
+          gradle --no-daemon assembleDebug \
+            -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
