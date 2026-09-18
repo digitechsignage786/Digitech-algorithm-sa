@@ -6,9 +6,13 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.view.Gravity
-import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.util.Locale
+import kotlin.concurrent.thread
 
 class MainActivity : AppCompatActivity() {
 
@@ -23,6 +27,14 @@ class MainActivity : AppCompatActivity() {
     private val blue = Color.rgb(55, 130, 235)
 
     private lateinit var favouriteBar: LinearLayout
+    private lateinit var chart: CandlestickChartView
+    private lateinit var ohlcInfo: TextView
+    private lateinit var liveStatus: TextView
+    private lateinit var signalBox: TextView
+    private lateinit var symbolText: TextView
+
+    private var selectedSymbol = "EUR/USD"
+    private var selectedInterval = "15min"
 
     private val tools = arrayOf(
         "Crosshair",
@@ -76,6 +88,8 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = bg
 
         buildUI()
+
+        loadMarketData()
     }
 
     private fun favourites(): MutableList<String> {
@@ -125,22 +139,32 @@ class MainActivity : AppCompatActivity() {
             LinearLayout.LayoutParams(42, 48)
         )
 
-        val symbol = TextView(this).apply {
-            text = "EURUSD  ▾"
+        symbolText = TextView(this).apply {
+            text = "EUR/USD  ▾"
             textSize = 14f
             gravity = Gravity.CENTER_VERTICAL
             setTextColor(white)
             setPadding(8, 0, 8, 0)
+
+            setOnClickListener {
+                showSymbolDialog()
+            }
         }
 
         top.addView(
-            symbol,
+            symbolText,
             LinearLayout.LayoutParams(105, 48)
         )
 
         val timeframes = arrayOf(
-            "1m", "5m", "15m", "30m",
-            "1H", "4H", "D", "W"
+            "1m",
+            "5m",
+            "15m",
+            "30m",
+            "1H",
+            "4H",
+            "D",
+            "W"
         )
 
         for (tf in timeframes) {
@@ -156,6 +180,11 @@ class MainActivity : AppCompatActivity() {
                 if (tf == "15m") {
                     setBackgroundColor(blue)
                 }
+
+                setOnClickListener {
+                    selectedInterval = intervalFor(tf)
+                    loadMarketData()
+                }
             }
 
             top.addView(
@@ -168,7 +197,11 @@ class MainActivity : AppCompatActivity() {
 
         top.addView(
             spacer,
-            LinearLayout.LayoutParams(0, 1, 1f)
+            LinearLayout.LayoutParams(
+                0,
+                1,
+                1f
+            )
         )
 
         val indicators = TextView(this).apply {
@@ -188,6 +221,10 @@ class MainActivity : AppCompatActivity() {
             textSize = 23f
             gravity = Gravity.CENTER
             setTextColor(white)
+
+            setOnClickListener {
+                showSymbolDialog()
+            }
         }
 
         top.addView(
@@ -214,27 +251,34 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(panel2)
         }
 
-        val info = TextView(this).apply {
-            text = "EURUSD · 15m    O 1.08452   H 1.08518   L 1.08437   C 1.08496"
+        ohlcInfo = TextView(this).apply {
+            text = "EUR/USD · 15m    Loading real OHLC..."
             textSize = 10f
             setTextColor(muted)
         }
 
         ohlc.addView(
-            info,
-            LinearLayout.LayoutParams(0, 38, 1f)
+            ohlcInfo,
+            LinearLayout.LayoutParams(
+                0,
+                38,
+                1f
+            )
         )
 
-        val live = TextView(this).apply {
-            text = "● LIVE"
-            textSize = 10f
+        liveStatus = TextView(this).apply {
+            text = "● CONNECTING"
+            textSize = 9f
             gravity = Gravity.CENTER
-            setTextColor(green)
+            setTextColor(blue)
         }
 
         ohlc.addView(
-            live,
-            LinearLayout.LayoutParams(60, 38)
+            liveStatus,
+            LinearLayout.LayoutParams(
+                78,
+                38
+            )
         )
 
         root.addView(
@@ -255,7 +299,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         // =========================
-        // LEFT FAVOURITE TOOLBAR
+        // LEFT TOOLBAR
         // =========================
 
         favouriteBar = LinearLayout(this).apply {
@@ -283,7 +327,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundColor(bg)
         }
 
-        val chart = CandlestickChartView(this)
+        chart = CandlestickChartView(this)
 
         chartFrame.addView(
             chart,
@@ -312,7 +356,7 @@ class MainActivity : AppCompatActivity() {
         )
 
         val emptyStatus = TextView(this).apply {
-            text = "DA  •  REAL OHLC DATA REQUIRED"
+            text = "DA  •  REAL OHLC DATA"
             textSize = 8f
             setTextColor(muted)
             setPadding(8, 0, 8, 7)
@@ -370,12 +414,12 @@ class MainActivity : AppCompatActivity() {
         right.addView(category)
 
         val marketRows = arrayOf(
-            "EURUSD      1.08496",
-            "GBPUSD      1.27644",
-            "USDJPY      148.76",
-            "XAUUSD      3414.76",
-            "BTCUSD      67480",
-            "ETHUSD      3248",
+            "EURUSD      LIVE",
+            "GBPUSD      —",
+            "USDJPY      —",
+            "XAUUSD      —",
+            "BTCUSD      —",
+            "ETHUSD      —",
             "NIFTY       —",
             "RELIANCE    —"
         )
@@ -410,7 +454,7 @@ class MainActivity : AppCompatActivity() {
 
         right.addView(signalTitle)
 
-        val signal = TextView(this).apply {
+        signalBox = TextView(this).apply {
             text =
                 "WAITING FOR REAL DATA\n\n" +
                 "A+   •   5R\n" +
@@ -423,11 +467,13 @@ class MainActivity : AppCompatActivity() {
             textSize = 10f
             setTextColor(green)
             setPadding(8, 9, 8, 9)
-            setBackgroundColor(Color.rgb(11, 37, 34))
+            setBackgroundColor(
+                Color.rgb(11, 37, 34)
+            )
         }
 
         right.addView(
-            signal,
+            signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 145
@@ -477,6 +523,7 @@ class MainActivity : AppCompatActivity() {
                 text = itemText
                 textSize = 8f
                 gravity = Gravity.CENTER
+
                 setTextColor(
                     if (itemText.contains("Chart"))
                         blue
@@ -507,158 +554,221 @@ class MainActivity : AppCompatActivity() {
     }
 
     // =========================
-    // TOOLBAR
+    // LIVE MARKET DATA
     // =========================
 
-    private fun refreshToolbar() {
+    private fun loadMarketData() {
 
-        favouriteBar.removeAllViews()
+        val apiKey = BuildConfig.TWELVE_DATA_API_KEY
 
-        val fav = favourites()
+        if (apiKey.isBlank()) {
 
-        for (toolName in fav) {
+            runOnUiThread {
 
-            val button = TextView(this).apply {
-                text = icon(toolName)
-                textSize = 17f
-                gravity = Gravity.CENTER
-                setTextColor(muted)
+                liveStatus.text = "● NO API KEY"
+                liveStatus.setTextColor(red)
 
-                setOnClickListener {
-                    Toast.makeText(
-                        this@MainActivity,
-                        toolName,
-                        Toast.LENGTH_SHORT
-                    ).show()
-                }
+                ohlcInfo.text =
+                    "EUR/USD · $selectedInterval    API key not available"
 
-                setOnLongClickListener {
-                    removeFavourite(toolName)
-                    true
-                }
+                signalBox.text =
+                    "DATA CONNECTION ERROR\n\n" +
+                    "Twelve Data API key not available."
             }
 
-            favouriteBar.addView(
-                button,
-                LinearLayout.LayoutParams(
-                    46,
-                    40
-                )
-            )
+            return
         }
 
-        val allTools = TextView(this).apply {
-            text = "☰"
-            textSize = 20f
-            gravity = Gravity.CENTER
-            setTextColor(white)
+        runOnUiThread {
 
-            setOnClickListener {
-                showTools()
-            }
+            liveStatus.text = "● LOADING"
+            liveStatus.setTextColor(blue)
+
+            ohlcInfo.text =
+                "EUR/USD · $selectedInterval    Loading real OHLC..."
         }
 
-        favouriteBar.addView(
-            allTools,
-            LinearLayout.LayoutParams(
-                46,
-                46
-            )
-        )
-    }
+        thread {
 
-    private fun icon(tool: String): String {
+            var connection: HttpURLConnection? = null
 
-        return when {
+            try {
 
-            tool == "Crosshair" -> "⌖"
-            tool == "Trend Line" -> "↗"
-            tool == "Horizontal Line" -> "—"
-            tool == "Vertical Line" -> "↕"
-            tool == "Ray" -> "➜"
-            tool == "Arrow" -> "➤"
-            tool == "Rectangle" -> "□"
-            tool == "Circle" -> "○"
-            tool == "Triangle" -> "△"
-            tool == "Text" -> "T"
-            tool == "Measure" -> "↔"
-            tool == "Long Position" -> "↗"
-            tool == "Short Position" -> "↘"
-            tool.contains("Fib") -> "F"
-            tool == "Brush" -> "✎"
-            tool == "Eraser" -> "⌫"
-            tool == "BOS" -> "B"
-            tool == "MSS" -> "M"
-            tool == "CHoCH" -> "C"
-            tool == "FVG" -> "F"
-            tool == "Order Block" -> "OB"
-            tool == "Liquidity" -> "LQ"
-            tool == "Premium / Discount" -> "PD"
-            tool == "OTE" -> "OT"
-            tool == "Previous Day High" -> "PDH"
-            tool == "Previous Day Low" -> "PDL"
+                val encodedSymbol =
+                    selectedSymbol.replace("/", "%2F")
 
-            else -> "•"
-        }
-    }
+                val urlString =
+                    "https://api.twelvedata.com/time_series" +
+                    "?symbol=$encodedSymbol" +
+                    "&interval=$selectedInterval" +
+                    "&outputsize=200" +
+                    "&apikey=$apiKey"
 
-    // =========================
-    // ALL TOOLS / FAVOURITES
-    // =========================
+                val url = URL(urlString)
 
-    private fun showTools() {
+                connection =
+                    url.openConnection() as HttpURLConnection
 
-        val current = favourites()
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
 
-        val checked = BooleanArray(tools.size)
+                val responseCode =
+                    connection.responseCode
 
-        for (i in tools.indices) {
-            checked[i] = current.contains(tools[i])
-        }
+                if (responseCode != 200) {
+                    throw Exception(
+                        "HTTP $responseCode"
+                    )
+                }
 
-        AlertDialog.Builder(this)
-            .setTitle("Favourite Tools")
-            .setMultiChoiceItems(
-                tools,
-                checked
-            ) { _, which, selected ->
+                val response =
+                    connection.inputStream
+                        .bufferedReader()
+                        .use { it.readText() }
 
-                val list = favourites()
+                val json =
+                    JSONObject(response)
 
-                if (selected) {
-                    if (!list.contains(tools[which])) {
-                        list.add(tools[which])
+                if (json.has("status") &&
+                    json.getString("status")
+                        .equals(
+                            "error",
+                            ignoreCase = true
+                        )
+                ) {
+
+                    val message =
+                        json.optString(
+                            "message",
+                            "Market data error"
+                        )
+
+                    throw Exception(message)
+                }
+
+                val values =
+                    json.optJSONArray("values")
+                        ?: throw Exception(
+                            "No OHLC values returned"
+                        )
+
+                val result =
+                    mutableListOf<Candle>()
+
+                for (i in values.length() - 1 downTo 0) {
+
+                    val item =
+                        values.getJSONObject(i)
+
+                    val datetime =
+                        item.optString(
+                            "datetime"
+                        )
+
+                    val open =
+                        item
+                            .optString("open")
+                            .toFloatOrNull()
+
+                    val high =
+                        item
+                            .optString("high")
+                            .toFloatOrNull()
+
+                    val low =
+                        item
+                            .optString("low")
+                            .toFloatOrNull()
+
+                    val close =
+                        item
+                            .optString("close")
+                            .toFloatOrNull()
+
+                    if (
+                        open == null ||
+                        high == null ||
+                        low == null ||
+                        close == null
+                    ) {
+                        continue
                     }
-                } else {
-                    list.remove(tools[which])
+
+                    val time =
+                        parseTime(datetime)
+
+                    result.add(
+                        Candle(
+                            time = time,
+                            open = open,
+                            high = high,
+                            low = low,
+                            close = close
+                        )
+                    )
                 }
 
-                saveFavourites(list)
-            }
-            .setNeutralButton("RESET") { _, _ ->
-                saveFavourites(defaultFav)
-                refreshToolbar()
-            }
-            .setPositiveButton("DONE") { _, _ ->
-                refreshToolbar()
-            }
-            .show()
-    }
+                if (result.isEmpty()) {
+                    throw Exception(
+                        "No valid candles returned"
+                    )
+                }
 
-    private fun removeFavourite(name: String) {
+                runOnUiThread {
 
-        val list = favourites()
+                    chart.setCandles(result)
 
-        list.remove(name)
+                    val latest =
+                        result.last()
 
-        saveFavourites(list)
+                    ohlcInfo.text =
+                        String.format(
+                            Locale.US,
+                            "EUR/USD · %s    O %.5f   H %.5f   L %.5f   C %.5f",
+                            selectedInterval,
+                            latest.open,
+                            latest.high,
+                            latest.low,
+                            latest.close
+                        )
 
-        refreshToolbar()
+                    liveStatus.text =
+                        "● LIVE"
 
-        Toast.makeText(
-            this,
-            "$name removed",
-            Toast.LENGTH_SHORT
-        ).show()
-    }
-}
+                    liveStatus.setTextColor(
+                        green
+                    )
+
+                    signalBox.text =
+                        "REAL MARKET DATA\n\n" +
+                        "EUR/USD  •  $selectedInterval\n" +
+                        "Candles     ${result.size}\n" +
+                        "ICT Engine  READY\n\n" +
+                        "A+ signal waiting\n" +
+                        "for ICT confirmation"
+                }
+
+            } catch (e: Exception) {
+
+                runOnUiThread {
+
+                    liveStatus.text =
+                        "● ERROR"
+
+                    liveStatus.setTextColor(
+                        red
+                    )
+
+                    ohlcInfo.text =
+                        "EUR/USD · $selectedInterval    Connection error"
+
+                    signalBox.text =
+                        "MARKET DATA ERROR\n\n" +
+                        e.message.orEmpty()
+                }
+
+            } finally {
+
+                connection?.disconnect()
+       
