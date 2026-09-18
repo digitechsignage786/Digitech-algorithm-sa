@@ -914,4 +914,5 @@ class CandlestickChartView(context: Context) : View(context) {
     }
 
     fun clearCandles() {
+    }
         
