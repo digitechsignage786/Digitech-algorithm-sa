@@ -930,10 +930,6 @@ class CandlestickChartView(context: Context) : View(context) {
     // Nothing to save.
 }
 }
-DrawingTool.CROSSHAIR -> {
-    // Nothing to save.
-}
-}
 
 startX = -1f
 startY = -1f
@@ -941,8 +937,7 @@ currentX = -1f
 currentY = -1f
 
 } else {
-
-dragging = false
+    dragging = false
 }
 
 invalidate()
@@ -968,9 +963,7 @@ return true
 return true
 }
 
-fun setDrawingTool(
-    tool: DrawingTool
-) {
+fun setDrawingTool(tool: DrawingTool) {
 
 activeTool = tool
 
@@ -992,9 +985,7 @@ measurements.clear()
 invalidate()
 }
 
-fun setCandles(
-    newCandles: List<Candle>
-) {
+fun setCandles(newCandles: List<Candle>) {
 
 candles.clear()
 candles.addAll(newCandles)
