@@ -8,7 +8,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.digitech.algorithm.test"
+        applicationId = "com.digitech.algorithm.test2"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
