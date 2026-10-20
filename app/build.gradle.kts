@@ -8,7 +8,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.digitech.algorithm"
+        applicationId = "com.digitech.algorithm.test"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -19,12 +19,6 @@ android {
             "TWELVE_DATA_API_KEY",
             "\"${project.findProperty("TWELVE_DATA_API_KEY") ?: ""}\""
         )
-    }
-
-    buildTypes {
-        getByName("debug") {
-            applicationIdSuffix = ".test"
-        }
     }
 
     buildFeatures {
