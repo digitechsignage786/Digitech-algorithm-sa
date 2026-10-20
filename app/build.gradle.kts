@@ -21,6 +21,12 @@ android {
         )
     }
 
+    buildTypes {
+        getByName("debug") {
+            applicationIdSuffix = ".test"
+        }
+    }
+
     buildFeatures {
         buildConfig = true
     }
