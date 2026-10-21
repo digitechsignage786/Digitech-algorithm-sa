@@ -339,10 +339,10 @@ internal object SmartIctSuite {
     }
 
     /** Prefix-only replay prevents a signal from seeing future candles. Simplified fills; not broker-accurate. */
-    fun backtest(input: Input, startIndex: Int = 60, maxBars: Int = 1200): BacktestStats {
+    fun backtest(input: Input, startIndex: Int = 60, maxBars: Int = 200): BacktestStats {
         val c=input.candles.filter { it.time>0L }.distinctBy { it.time }.sortedBy { it.time }
         if(c.size<8) return BacktestStats(0,0,0,0f,0f,0f,0f,0f,"NOT ENOUGH DATA")
-        val first=startIndex.coerceAtLeast(5).coerceAtMost(c.lastIndex); val last=min(c.lastIndex,first+maxBars.coerceAtLeast(1))
+        val first=startIndex.coerceAtLeast(5).coerceAtMost(c.lastIndex); val last=min(c.lastIndex,first+maxBars.coerceIn(1,300))
         val results=mutableListOf<Float>()
         for(i in first until last) {
             val prefix=c.take(i+1); val r=analyze(input.copy(candles=prefix,config=input.config.copy(nowMillis=prefix.last().time,latestFeedTimeMillis=prefix.last().time,feedState=FeedState.LIVE)))
