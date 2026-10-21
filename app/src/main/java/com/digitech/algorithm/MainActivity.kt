@@ -581,7 +581,7 @@ super.onCreate(savedInstanceState)
             signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(35)
+                dp(40)
             )
         )
 
