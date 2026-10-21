@@ -13,7 +13,9 @@ import kotlin.math.min
  */
 internal object SmartIctSuite {
     enum class Tag {
-        SWING_HIGH, SWING_LOW, HH, HL, LH, LL, INTERNAL_STRUCTURE, EXTERNAL_STRUCTURE,
+        SWING_HIGH, SWING_LOW, HH, HL, LH, LL, SHORT_TERM_HIGH, SHORT_TERM_LOW,
+        INTERMEDIATE_TERM_HIGH, INTERMEDIATE_TERM_LOW, LONG_TERM_HIGH, LONG_TERM_LOW,
+        RELATIVE_EQUAL_HIGHS, RELATIVE_EQUAL_LOWS, INTERNAL_STRUCTURE, EXTERNAL_STRUCTURE,
         BOS_BULLISH, BOS_BEARISH, CHOCH_BULLISH, CHOCH_BEARISH, MSS_BULLISH, MSS_BEARISH,
         PROTECTED_HIGH, PROTECTED_LOW, BSL, SSL, EQH, EQL, LIQUIDITY_SWEEP_BUY, LIQUIDITY_SWEEP_SELL,
         IRL, ERL, DRAW_ON_LIQUIDITY_HIGH, DRAW_ON_LIQUIDITY_LOW,
@@ -22,10 +24,14 @@ internal object SmartIctSuite {
         ORDER_BLOCK_BULLISH, ORDER_BLOCK_BEARISH, BREAKER_BULLISH, BREAKER_BEARISH,
         MITIGATION_BLOCK, REJECTION_BLOCK, PROPULSION_BLOCK, VACUUM_BLOCK,
         PREMIUM, DISCOUNT, EQUILIBRIUM, OTE, RANGE_EXPANSION, PRICE_DELIVERY_RANGE,
-        ASIA_RANGE, LONDON_KILL_ZONE, NY_AM_KILL_ZONE, NY_PM, LONDON_CLOSE,
+        ASIA_RANGE, LONDON_KILL_ZONE, NY_AM_KILL_ZONE, NY_PM, LONDON_CLOSE, SESSION_OPEN, MACRO_WINDOW,
+        DAILY_BIAS_BULLISH, DAILY_BIAS_BEARISH, WEEKLY_BIAS_BULLISH, WEEKLY_BIAS_BEARISH,
+        MONTHLY_BIAS_BULLISH, MONTHLY_BIAS_BEARISH,
         PDH, PDL, PWH, PWL, DAILY_OPEN, WEEKLY_OPEN, SESSION_HIGH, SESSION_LOW,
         SILVER_BULLET, JUDAS_SWING, TURTLE_SOUP, UNICORN, ICT_2022_MODEL, POWER_OF_THREE,
-        MMXM, SMT_BULLISH, SMT_BEARISH, HTF_BIAS_BULLISH, HTF_BIAS_BEARISH,
+        MMXM, AMD_ACCUMULATION, AMD_MANIPULATION, AMD_DISTRIBUTION,
+        FVG_OB_ENTRY, BREAKER_FVG_ENTRY, OTE_ENTRY,
+        SMT_BULLISH, SMT_BEARISH, HTF_BIAS_BULLISH, HTF_BIAS_BEARISH,
         MTF_CONFLUENCE, MTF_CONFLICT, BUY_SETUP, SELL_SETUP, ENTRY, STOP_LOSS,
         TAKE_PROFIT_1, TAKE_PROFIT_2, TAKE_PROFIT_3, NO_TRADE, NEWS_WARNING,
         SPREAD_WARNING, STALE_DATA_WARNING
@@ -92,6 +98,7 @@ internal object SmartIctSuite {
             }
         }
         classify(candles, highs, true, marks); classify(candles, lows, false, marks)
+        addPivotHierarchy(candles, highs, lows, right, marks)
         highs.takeLast(2).forEach { marks += m(Tag.BSL,candles[it],candles.last(),candles[it].high,candles[it].high,candles[it].time,"Swing high liquidity candidate") }
         lows.takeLast(2).forEach { marks += m(Tag.SSL,candles[it],candles.last(),candles[it].low,candles[it].low,candles[it].time,"Swing low liquidity candidate") }
 
@@ -200,8 +207,10 @@ internal object SmartIctSuite {
                 val i=idxs[a]; val j=idxs[b]; if (j-i>cfg.dealingRangeLookback.coerceAtLeast(5)) continue
                 val p1=if(isHigh)candles[i].high else candles[i].low
                 val p2=if(isHigh)candles[j].high else candles[j].low
-                if (abs(p1-p2)<=max(abs(p1),abs(p2))*tolerance)
+                if (abs(p1-p2)<=max(abs(p1),abs(p2))*tolerance) {
                     marks+=m(if(isHigh)Tag.EQH else Tag.EQL,candles[i],candles[j],min(p1,p2),max(p1,p2),candles[j+right].time,"Equal levels within configured tolerance")
+                    marks+=m(if(isHigh)Tag.RELATIVE_EQUAL_HIGHS else Tag.RELATIVE_EQUAL_LOWS,candles[i],candles[j],min(p1,p2),max(p1,p2),candles[j+right].time,"Relative equal liquidity levels")
+                }
             }
         }
         for (i in 1 until candles.size) {
@@ -244,7 +253,21 @@ internal object SmartIctSuite {
         if (bearOb!=null && marks.any { it.tag==Tag.FVG_BEARISH && it.low<=bearOb.high && it.high>=bearOb.low })
             marks+=m(Tag.UNICORN,last,last,bearOb.low,bearOb.high,last.time,"Bearish OB/FVG overlap candidate")
         val asia=marks.lastOrNull { it.tag==Tag.ASIA_RANGE }
-        if (asia!=null && (bullSweep||bearSweep)) marks+=m(Tag.POWER_OF_THREE,candles[max(0,candles.lastIndex-3)],last,asia.low,asia.high,last.time,"Accumulation range then sweep candidate")
+        if (asia!=null) {
+            marks+=m(Tag.AMD_ACCUMULATION,candles[max(0,candles.lastIndex-3)],last,asia.low,asia.high,last.time,"Asia/range accumulation candidate")
+            if (bullSweep||bearSweep) marks+=m(Tag.AMD_MANIPULATION,candles[max(0,candles.lastIndex-3)],last,asia.low,asia.high,last.time,"Liquidity raid/manipulation candidate")
+            if ((bullSweep&&bullFvg)||(bearSweep&&bearFvg)) marks+=m(Tag.AMD_DISTRIBUTION,candles[max(0,candles.lastIndex-3)],last,candles.takeLast(4).minOf { it.low },candles.takeLast(4).maxOf { it.high },last.time,"Post-raid displacement/distribution candidate")
+            if (bullSweep||bearSweep) marks+=m(Tag.POWER_OF_THREE,candles[max(0,candles.lastIndex-3)],last,asia.low,asia.high,last.time,"Accumulation range then sweep candidate")
+        }
+        if (bullOb!=null && bullFvg) marks+=m(Tag.FVG_OB_ENTRY,last,last,bullOb.low,bullOb.high,last.time,"Bullish FVG/OB confluence entry candidate")
+        if (bearOb!=null && bearFvg) marks+=m(Tag.FVG_OB_ENTRY,last,last,bearOb.low,bearOb.high,last.time,"Bearish FVG/OB confluence entry candidate")
+        val bullBreaker=marks.lastOrNull { it.tag==Tag.BREAKER_BULLISH && !it.invalidated }
+        val bearBreaker=marks.lastOrNull { it.tag==Tag.BREAKER_BEARISH && !it.invalidated }
+        if (bullBreaker!=null && bullFvg) marks+=m(Tag.BREAKER_FVG_ENTRY,last,last,bullBreaker.low,bullBreaker.high,last.time,"Bullish breaker/FVG confluence candidate")
+        if (bearBreaker!=null && bearFvg) marks+=m(Tag.BREAKER_FVG_ENTRY,last,last,bearBreaker.low,bearBreaker.high,last.time,"Bearish breaker/FVG confluence candidate")
+        val ote=marks.lastOrNull { it.tag==Tag.OTE }
+        if (ote!=null && last.close>=ote.low && last.close<=ote.high && (bullSweep||bearSweep))
+            marks+=m(Tag.OTE_ENTRY,last,last,ote.low,ote.high,last.time,"Price inside OTE band with liquidity sweep")
         if (bullSweep||bearSweep) marks+=m(Tag.MMXM,candles[max(0,candles.lastIndex-3)],last,candles.takeLast(4).minOf { it.low },candles.takeLast(4).maxOf { it.high },last.time,"MMXM heuristic; requires HTF context")
 
         val now=cfg.nowMillis ?: last.time
@@ -318,6 +341,36 @@ internal object SmartIctSuite {
     }
 
     fun realMoneyExecutionAllowed(): Boolean = false
+
+    private fun addPivotHierarchy(c:List<Candle>, highPivots:List<Int>, lowPivots:List<Int>, right:Int, out:MutableList<Mark>) {
+        highPivots.forEach { i -> out+=m(Tag.SHORT_TERM_HIGH,c[i],c[i],c[i].high,c[i].high,c[i+right].time,"Confirmed short-term high") }
+        lowPivots.forEach { i -> out+=m(Tag.SHORT_TERM_LOW,c[i],c[i],c[i].low,c[i].low,c[i+right].time,"Confirmed short-term low") }
+        val midHigh=mutableListOf<Int>(); val midLow=mutableListOf<Int>()
+        for (j in 1 until highPivots.lastIndex) {
+            val p=highPivots[j]
+            if(c[p].high>c[highPivots[j-1]].high && c[p].high>c[highPivots[j+1]].high) {
+                midHigh+=p
+                out+=m(Tag.INTERMEDIATE_TERM_HIGH,c[p],c[highPivots[j+1]+right],c[p].high,c[p].high,c[highPivots[j+1]+right].time,"Pivot higher than adjacent confirmed swing highs")
+            }
+        }
+        for (j in 1 until lowPivots.lastIndex) {
+            val p=lowPivots[j]
+            if(c[p].low<c[lowPivots[j-1]].low && c[p].low<c[lowPivots[j+1]].low) {
+                midLow+=p
+                out+=m(Tag.INTERMEDIATE_TERM_LOW,c[p],c[lowPivots[j+1]+right],c[p].low,c[p].low,c[lowPivots[j+1]+right].time,"Pivot lower than adjacent confirmed swing lows")
+            }
+        }
+        for (j in 1 until midHigh.lastIndex) {
+            val p=midHigh[j]
+            if(c[p].high>c[midHigh[j-1]].high && c[p].high>c[midHigh[j+1]].high)
+                out+=m(Tag.LONG_TERM_HIGH,c[p],c[midHigh[j+1]],c[p].high,c[p].high,c[midHigh[j+1]+right].time,"Fractal long-term high candidate")
+        }
+        for (j in 1 until midLow.lastIndex) {
+            val p=midLow[j]
+            if(c[p].low<c[midLow[j-1]].low && c[p].low<c[midLow[j+1]].low)
+                out+=m(Tag.LONG_TERM_LOW,c[p],c[midLow[j+1]],c[p].low,c[p].low,c[midLow[j+1]+right].time,"Fractal long-term low candidate")
+        }
+    }
 
     private fun addRangeMarks(c:List<Candle>,cfg:Config,o:MutableList<Mark>) {
         val w=c.takeLast(cfg.dealingRangeLookback.coerceAtLeast(5)); val hi=w.maxOf { it.high }; val lo=w.minOf { it.low }; val eq=(hi+lo)/2f
