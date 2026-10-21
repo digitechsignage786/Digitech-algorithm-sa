@@ -39,6 +39,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var toolbar: LinearLayout
     private lateinit var watchlist: LinearLayout
     private lateinit var streamStatusText: TextView
+    private lateinit var signalText: TextView
 
     private var selectedSymbol = "EUR/USD"
     private var selectedTimeframe = "5m"
@@ -529,12 +530,12 @@ super.onCreate(savedInstanceState)
         streamStatusText.setSingleLine(true)
         streamStatusText.ellipsize = android.text.TextUtils.TruncateAt.END
 
-        val signal = TextView(this)
-        signal.text = "Waiting for live market data..."
-        signal.textSize = 8f
-        signal.setTextColor(Color.WHITE)
-        signal.setSingleLine(true)
-        signal.ellipsize = android.text.TextUtils.TruncateAt.END
+        signalText = TextView(this)
+        signalText.text = "Waiting for live market data..."
+        signalText.textSize = 8f
+        signalText.setTextColor(Color.WHITE)
+        signalText.setSingleLine(true)
+        signalText.ellipsize = android.text.TextUtils.TruncateAt.END
 
         signalBox.addView(signalTitle, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
@@ -1097,6 +1098,8 @@ super.onCreate(savedInstanceState)
         statusText.setTextColor(Color.YELLOW)
         streamStatusText.text = "WEBSOCKET: CONNECTING"
         streamStatusText.setTextColor(Color.YELLOW)
+        signalText.text = "Waiting for live market data..."
+        signalText.setTextColor(Color.WHITE)
 
         val apiKey = BuildConfig.TWELVE_DATA_API_KEY
 
@@ -1864,6 +1867,13 @@ super.onCreate(savedInstanceState)
                         price
                     )
                     streamStatusText.setTextColor(Color.rgb(30, 200, 140))
+                    signalText.text = String.format(
+                        Locale.US,
+                        "LIVE DATA RECEIVED | %s | %.5f",
+                        selectedSymbol,
+                        price
+                    )
+                    signalText.setTextColor(Color.rgb(30, 200, 140))
                 }
             }
 
