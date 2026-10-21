@@ -119,6 +119,17 @@ internal object SmartIctSuite {
         }
 
         val atr = trueRanges(candles,cfg.atrPeriod.coerceAtLeast(2))
+        // Detect observed opening gaps only across normal intraday intervals.
+        // Overnight/weekend closures remain missing time, never synthetic candles.
+        for (i in 1 until candles.size) {
+            val prev = candles[i-1]
+            val cur = candles[i]
+            val elapsed = cur.time - prev.time
+            if (elapsed in 1..108_000_000L && abs(cur.open - prev.close) >= atr[i].coerceAtLeast(0.0000001f) * 0.5f) {
+                marks += m(Tag.OPENING_GAP, prev, cur, min(prev.close, cur.open), max(prev.close, cur.open),
+                    cur.time, "Observed price gap in supplied candles; no candle was generated")
+            }
+        }
         val gaps = mutableListOf<Gap>()
         for (i in 2 until candles.size) {
             val a=candles[i-2]; val b=candles[i-1]; val c=candles[i]
