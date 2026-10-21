@@ -2091,7 +2091,23 @@ class CandlestickChartView(context: Context) : View(context) {
         val diagnosticSignature = diagnosticRows.joinToString("|")
         if (diagnosticSignature.isNotEmpty() && diagnosticSignature != lastIctSwingDiagnosticSignature) {
             lastIctSwingDiagnosticSignature = diagnosticSignature
-            Log.d("ICT_SWING_VERIFY", "intervalMs=${pivots.firstOrNull()?.sourceIntervalMillis ?: -1L}; mappings=${diagnosticRows.joinToString(";")}")
+            val sourceInterval = pivots.firstOrNull()?.sourceIntervalMillis ?: -1L
+            // Diagnostic only: flag suspicious source-to-chart timestamp gaps.
+            // This intentionally does NOT change pivot detection or rendering.
+            val maxAllowedDelta = if (sourceInterval > 0L) sourceInterval else lastCandleIntervalMillis
+            val suspiciousMappings = diagnosticPivots.mapNotNull { pivot ->
+                val idx = nearestCurrentCandleIndex(pivot.sourceTime)
+                if (idx !in candles.indices) null else {
+                    val delta = candles[idx].time - pivot.sourceTime
+                    if (abs(delta) > maxAllowedDelta) {
+                        "${pivot.kind}:deltaMs=${delta},limitMs=${maxAllowedDelta},source=${pivot.sourceTime},chart=${candles[idx].time}"
+                    } else null
+                }
+            }
+            Log.d(
+                "ICT_SWING_VERIFY",
+                "intervalMs=${sourceInterval};maxAllowedDeltaMs=${maxAllowedDelta};mappings=${diagnosticRows.joinToString(";")};suspicious=${suspiciousMappings.joinToString(";")}"
+            )
         }
         // Primary structure remains visible, but only the most recent confirmed
         // visible pivots receive labels/levels. Older structure stays in the
