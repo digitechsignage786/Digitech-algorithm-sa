@@ -1150,11 +1150,12 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.TAKE_PROFIT_3
         )
         val displayTags = zoneTags + levelTags
-        val visible = result.marks.asSequence()
+        val visible = result.marks
             .filter { it.tag in displayTags && it.endTime >= visibleStart && it.startTime <= visibleEnd }
-            .distinctBy { it.tag }
+            .groupBy { it.tag }
+            .values
+            .mapNotNull { it.lastOrNull() }
             .takeLast(22)
-            .toList()
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
