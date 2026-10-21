@@ -432,6 +432,7 @@ class CandlestickChartView(context: Context) : View(context) {
             // ICT structure overlays: confirmed pivots only, directly on the main chart.
             drawIctStructureOverlays(canvas)
             drawSmartIctEngineOverlays(canvas)
+            drawSmartIctSuiteOverlays(canvas)
             drawCurrentPrice(canvas)
             drawPriceScale(canvas)
             drawTimeScale(canvas)
@@ -1087,6 +1088,123 @@ class CandlestickChartView(context: Context) : View(context) {
                     label.color = line.color
                     canvas.drawText(event.kind.name.replace("_", " "), x2.coerceIn(left, right - 90f), (y1 - 4f).coerceIn(top + 10f, bottom), label)
                 }
+            }
+        }
+    }
+
+    // Additional Smart ICT marks are cached by candle fingerprint so a redraw does not
+    // rerun the full analysis on every animation frame. This renderer is additive only.
+    private var smartIctSuiteCacheKey: String = ""
+    private var smartIctSuiteCache: SmartIctSuite.Result? = null
+
+    private fun drawSmartIctSuiteOverlays(canvas: Canvas) {
+        if (candles.size < 5) return
+        val last = candles.last()
+        val fingerprint = candles.size.toString() + ":" + candles.first().time + ":" +
+            last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close
+        var result = smartIctSuiteCache
+        if (result == null || fingerprint != smartIctSuiteCacheKey) {
+            result = SmartIctSuite.analyze(SmartIctSuite.Input(candles.toList(), symbol = liveSymbol))
+            smartIctSuiteCacheKey = fingerprint
+            smartIctSuiteCache = result
+        }
+        val range = visibleRange()
+        val highest = range.first
+        val lowest = range.second
+        val span = (highest - lowest).coerceAtLeast(0.0000001f)
+        val top = chartTop()
+        val bottom = chartBottom()
+        val left = chartLeft()
+        val right = chartRight().coerceAtLeast(left + 1f)
+        val step = candleStep().coerceAtLeast(1f)
+        val visibleStart = candles.first().time
+        val visibleEnd = candles.last().time
+        fun xFor(time: Long): Float {
+            val ix = candles.indexOfLast { it.time <= time }.coerceAtLeast(0)
+            return (left + ix * step + offsetX + step / 2f).coerceIn(left, right)
+        }
+        fun yFor(price: Float): Float = (top + ((highest - price) / span) * (bottom - top)).coerceIn(top, bottom)
+        val boxFill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; alpha = 17 }
+        val boxLine = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1.2f }
+        val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1.3f }
+        val label = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = 10.5f
+            textAlign = Paint.Align.LEFT
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val zoneTags = setOf(
+            SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.IFVG_BEARISH,
+            SmartIctSuite.Tag.BPR, SmartIctSuite.Tag.BREAKER_BULLISH,
+            SmartIctSuite.Tag.BREAKER_BEARISH, SmartIctSuite.Tag.MITIGATION_BLOCK,
+            SmartIctSuite.Tag.OTE, SmartIctSuite.Tag.ASIA_RANGE,
+            SmartIctSuite.Tag.LONDON_KILL_ZONE, SmartIctSuite.Tag.NY_AM_KILL_ZONE,
+            SmartIctSuite.Tag.PREMIUM, SmartIctSuite.Tag.DISCOUNT
+        )
+        val levelTags = setOf(
+            SmartIctSuite.Tag.PDH, SmartIctSuite.Tag.PDL, SmartIctSuite.Tag.PWH,
+            SmartIctSuite.Tag.PWL, SmartIctSuite.Tag.DAILY_OPEN, SmartIctSuite.Tag.WEEKLY_OPEN,
+            SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY, SmartIctSuite.Tag.LIQUIDITY_SWEEP_SELL,
+            SmartIctSuite.Tag.SMT_BULLISH, SmartIctSuite.Tag.SMT_BEARISH,
+            SmartIctSuite.Tag.ENTRY, SmartIctSuite.Tag.STOP_LOSS,
+            SmartIctSuite.Tag.TAKE_PROFIT_1, SmartIctSuite.Tag.TAKE_PROFIT_2,
+            SmartIctSuite.Tag.TAKE_PROFIT_3
+        )
+        val displayTags = zoneTags + levelTags
+        val visible = result.marks.asSequence()
+            .filter { it.tag in displayTags && it.endTime >= visibleStart && it.startTime <= visibleEnd }
+            .distinctBy { it.tag }
+            .takeLast(22)
+            .toList()
+        for (event in visible) {
+            val bullish = event.tag in setOf(
+                SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
+                SmartIctSuite.Tag.SMT_BULLISH, SmartIctSuite.Tag.ENTRY,
+                SmartIctSuite.Tag.TAKE_PROFIT_1, SmartIctSuite.Tag.TAKE_PROFIT_2,
+                SmartIctSuite.Tag.TAKE_PROFIT_3
+            )
+            val bearish = event.tag in setOf(
+                SmartIctSuite.Tag.IFVG_BEARISH, SmartIctSuite.Tag.BREAKER_BEARISH,
+                SmartIctSuite.Tag.SMT_BEARISH, SmartIctSuite.Tag.STOP_LOSS,
+                SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY
+            )
+            val color = when {
+                event.tag == SmartIctSuite.Tag.PDH || event.tag == SmartIctSuite.Tag.PWH -> Color.rgb(245, 170, 65)
+                event.tag == SmartIctSuite.Tag.PDL || event.tag == SmartIctSuite.Tag.PWL -> Color.rgb(70, 190, 230)
+                event.tag == SmartIctSuite.Tag.STOP_LOSS -> Color.rgb(245, 75, 90)
+                event.tag == SmartIctSuite.Tag.BPR -> Color.rgb(185, 125, 235)
+                bullish -> Color.rgb(35, 195, 145)
+                bearish -> Color.rgb(235, 75, 95)
+                else -> Color.rgb(205, 175, 90)
+            }
+            val x1 = xFor(event.startTime)
+            val x2 = xFor(event.endTime).coerceAtLeast(x1 + step)
+            val yLow = yFor(event.low)
+            val yHigh = yFor(event.high)
+            label.color = color
+            if (event.tag in zoneTags) {
+                boxFill.color = color
+                boxLine.color = color
+                val rect = RectF(
+                    x1.coerceIn(left, right), min(yHigh, yLow).coerceIn(top, bottom),
+                    x2.coerceIn(left, right).coerceAtLeast(x1.coerceIn(left, right) + 1f),
+                    max(yHigh, yLow).coerceIn(top, bottom)
+                )
+                if (rect.bottom - rect.top >= 1f && rect.right > rect.left) {
+                    canvas.drawRect(rect, boxFill)
+                    canvas.drawRect(rect, boxLine)
+                }
+                val tag = event.tag.name.replace("_", " ")
+                canvas.drawText(tag, rect.left + 2f, (rect.top + 11f).coerceIn(top + 10f, bottom), label)
+            } else {
+                line.color = color
+                line.pathEffect = if (event.tag == SmartIctSuite.Tag.PDH ||
+                    event.tag == SmartIctSuite.Tag.PDL || event.tag == SmartIctSuite.Tag.PWH ||
+                    event.tag == SmartIctSuite.Tag.PWL) DashPathEffect(floatArrayOf(6f, 4f), 0f) else null
+                val y = yFor((event.low + event.high) / 2f)
+                canvas.drawLine(left, y, right, y, line)
+                line.pathEffect = null
+                val tag = event.tag.name.replace("_", " ")
+                canvas.drawText(tag, (right - 112f).coerceAtLeast(left), (y - 3f).coerceIn(top + 10f, bottom), label)
             }
         }
     }
