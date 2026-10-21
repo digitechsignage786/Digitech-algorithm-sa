@@ -9,6 +9,7 @@ on:
       - ict-swing-mapping-diagnostic-v2
       - ict-swing-diagnostic-audit-v3
       - ict-swing-bos-confirmation-audit
+      - ict-bos-visible-chart-audit
 
 jobs:
   build:
