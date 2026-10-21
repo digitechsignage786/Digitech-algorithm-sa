@@ -31,7 +31,7 @@ jobs:
         env:
           TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
         run: |
-          gradle --no-daemon assembleDebug \
+          gradle --no-daemon testDebugUnitTest assembleDebug \
             -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
 
       - name: Upload APK
