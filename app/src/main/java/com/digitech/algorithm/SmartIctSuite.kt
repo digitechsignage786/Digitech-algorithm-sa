@@ -19,11 +19,13 @@ internal object SmartIctSuite {
         BOS_BULLISH, BOS_BEARISH, CHOCH_BULLISH, CHOCH_BEARISH, MSS_BULLISH, MSS_BEARISH,
         PROTECTED_HIGH, PROTECTED_LOW, BSL, SSL, EQH, EQL, LIQUIDITY_SWEEP_BUY, LIQUIDITY_SWEEP_SELL,
         IRL, ERL, DRAW_ON_LIQUIDITY_HIGH, DRAW_ON_LIQUIDITY_LOW,
-        FVG_BULLISH, FVG_BEARISH, IFVG_BULLISH, IFVG_BEARISH, BPR, VOLUME_IMBALANCE,
+        FVG_BULLISH, FVG_BEARISH, FVG_PARTIAL_FILL, FVG_FULL_FILL, FVG_INVALIDATED,
+        IFVG_BULLISH, IFVG_BEARISH, BPR, VOLUME_IMBALANCE,
         OPENING_GAP, DISPLACEMENT_BULLISH, DISPLACEMENT_BEARISH, CE_50,
         ORDER_BLOCK_BULLISH, ORDER_BLOCK_BEARISH, BREAKER_BULLISH, BREAKER_BEARISH,
         MITIGATION_BLOCK, REJECTION_BLOCK, PROPULSION_BLOCK, VACUUM_BLOCK,
-        PREMIUM, DISCOUNT, EQUILIBRIUM, OTE, RANGE_EXPANSION, PRICE_DELIVERY_RANGE,
+        PREMIUM, DISCOUNT, EQUILIBRIUM, OTE, OTE_BULLISH, OTE_BEARISH, FIB_62, FIB_705, FIB_79,
+        RANGE_EXPANSION, PRICE_DELIVERY_RANGE,
         ASIA_RANGE, LONDON_KILL_ZONE, NY_AM_KILL_ZONE, NY_PM, LONDON_CLOSE, SESSION_OPEN, MACRO_WINDOW,
         DAILY_BIAS_BULLISH, DAILY_BIAS_BEARISH, WEEKLY_BIAS_BULLISH, WEEKLY_BIAS_BEARISH,
         MONTHLY_BIAS_BULLISH, MONTHLY_BIAS_BEARISH,
@@ -46,12 +48,13 @@ internal object SmartIctSuite {
     data class Signal(val bullish: Boolean, val timeMillis: Long, val entry: Float, val stopLoss: Float,
                       val takeProfit1: Float, val takeProfit2: Float, val takeProfit3: Float,
                       val riskReward2: Float, val riskPercent: Float, val confluence: Int,
-                      val reasons: List<String>)
+                      val tradeFiltersPassed: Boolean, val reasons: List<String>)
     data class Config(
         val zoneId: String = "America/New_York", val pivotLeft: Int = 2, val pivotRight: Int = 2,
         val equalToleranceBps: Float = 8f, val dealingRangeLookback: Int = 50, val atrPeriod: Int = 14,
         val displacementAtrMultiple: Float = 1.25f, val maxSpreadBps: Float = 3f,
         val actualSpreadBps: Float? = null, val newsBufferMinutes: Int = 15,
+        val newsCalendarComplete: Boolean = false,
         val maxDataAgeMillis: Long = 120_000L, val nowMillis: Long? = null,
         val feedState: FeedState = FeedState.LIVE, val dailyLossPercent: Float = 0f,
         val dailyLossLimitPercent: Float = 3f, val riskPercent: Float = 1f,
@@ -148,16 +151,30 @@ internal object SmartIctSuite {
             }
             if (c.low>a.high) {
                 val g=Gap(true,i-2,i,a.high,c.low); gaps+=g
-                val filled=candles.drop(i+1).any { it.low<=g.low }
-                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,if(filled)"Filled later" else "Bullish three-candle imbalance",filled)
+                val future=candles.drop(i+1)
+                val partial=future.firstOrNull { it.low<g.high }
+                val full=future.firstOrNull { it.low<=g.low }
+                val invalid=future.firstOrNull { it.close<g.low }
+                val filled=full!=null
+                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bullish three-candle imbalance",filled)
+                if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bullish FVG entered but not yet fully filled")
+                if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bullish FVG fully traversed")
+                if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bullish FVG invalidated by close below lower boundary")
                 marks+=m(Tag.CE_50,a,c,(g.low+g.high)/2f,(g.low+g.high)/2f,c.time,"FVG 50% consequent encroachment")
                 if (b.high>b.low && abs(b.close-b.open)/(b.high-b.low)>0.75f)
                     marks+=m(Tag.VOLUME_IMBALANCE,b,b,b.low,b.high,b.time,"Body-dominant proxy; volume data unavailable")
             }
             if (c.high<a.low) {
                 val g=Gap(false,i-2,i,c.high,a.low); gaps+=g
-                val filled=candles.drop(i+1).any { it.high>=g.high }
-                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,if(filled)"Filled later" else "Bearish three-candle imbalance",filled)
+                val future=candles.drop(i+1)
+                val partial=future.firstOrNull { it.high>g.low }
+                val full=future.firstOrNull { it.high>=g.high }
+                val invalid=future.firstOrNull { it.close>g.high }
+                val filled=full!=null
+                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bearish three-candle imbalance",filled)
+                if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bearish FVG entered but not yet fully filled")
+                if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bearish FVG fully traversed")
+                if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bearish FVG invalidated by close above upper boundary")
                 marks+=m(Tag.CE_50,a,c,(g.low+g.high)/2f,(g.low+g.high)/2f,c.time,"FVG 50% consequent encroachment")
             }
         }
@@ -265,18 +282,21 @@ internal object SmartIctSuite {
         val bearBreaker=marks.lastOrNull { it.tag==Tag.BREAKER_BEARISH && !it.invalidated }
         if (bullBreaker!=null && bullFvg) marks+=m(Tag.BREAKER_FVG_ENTRY,last,last,bullBreaker.low,bullBreaker.high,last.time,"Bullish breaker/FVG confluence candidate")
         if (bearBreaker!=null && bearFvg) marks+=m(Tag.BREAKER_FVG_ENTRY,last,last,bearBreaker.low,bearBreaker.high,last.time,"Bearish breaker/FVG confluence candidate")
-        val ote=marks.lastOrNull { it.tag==Tag.OTE }
-        if (ote!=null && last.close>=ote.low && last.close<=ote.high && (bullSweep||bearSweep))
-            marks+=m(Tag.OTE_ENTRY,last,last,ote.low,ote.high,last.time,"Price inside OTE band with liquidity sweep")
+        val oteBull=marks.lastOrNull { it.tag==Tag.OTE_BULLISH }
+        val oteBear=marks.lastOrNull { it.tag==Tag.OTE_BEARISH }
+        if (bullSweep && oteBull!=null && last.close>=oteBull.low && last.close<=oteBull.high)
+            marks+=m(Tag.OTE_ENTRY,last,last,oteBull.low,oteBull.high,last.time,"Bullish liquidity raid inside bullish OTE band")
+        if (bearSweep && oteBear!=null && last.close>=oteBear.low && last.close<=oteBear.high)
+            marks+=m(Tag.OTE_ENTRY,last,last,oteBear.low,oteBear.high,last.time,"Bearish liquidity raid inside bearish OTE band")
         if (bullSweep||bearSweep) marks+=m(Tag.MMXM,candles[max(0,candles.lastIndex-3)],last,candles.takeLast(4).minOf { it.low },candles.takeLast(4).maxOf { it.high },last.time,"MMXM heuristic; requires HTF context")
 
         val now=cfg.nowMillis ?: last.time
         val blockers=mutableListOf<String>()
         if (cfg.feedState!=FeedState.LIVE) blockers+="Feed state is " + cfg.feedState
         if (now-last.time>cfg.maxDataAgeMillis) blockers+="Latest candle is stale"
-        if (cfg.actualSpreadBps==null) blockers+="Spread unavailable"
-        else if (cfg.actualSpreadBps>cfg.maxSpreadBps) blockers+="Spread exceeds maximum"
         if (cfg.dailyLossPercent>=cfg.dailyLossLimitPercent) blockers+="Daily loss limit reached"
+        val spreadReady=cfg.actualSpreadBps!=null && cfg.actualSpreadBps<=cfg.maxSpreadBps
+        val tradeFiltersReady=spreadReady && cfg.newsCalendarComplete
         val currencies=currenciesFor(input.symbol)
         val hotNews=input.news.filter { it.impact==Impact.HIGH && it.currency.uppercase() in currencies &&
             abs(it.timeMillis-now)<=cfg.newsBufferMinutes.coerceAtLeast(0)*60_000L }
@@ -288,11 +308,12 @@ internal object SmartIctSuite {
         if (cfg.feedState!=FeedState.LIVE || now-last.time>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
         val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
         if (!sessionOk) blockers+="Outside configured London/NY session"
-        if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg)?.let { signals+=it }
-        else if (bearSweep && bearFvg && bearMss && blockers.isEmpty()) signal(false,candles,marks,cfg)?.let { signals+=it }
+        if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
+        else if (bearSweep && bearFvg && bearMss && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
         else if (bullSweep||bearSweep) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,blockers.firstOrNull() ?: "Signal confirmations are incomplete")
         signals.lastOrNull()?.let { s ->
             marks+=m(if(s.bullish)Tag.BUY_SETUP else Tag.SELL_SETUP,last,last,min(s.entry,s.stopLoss),max(s.entry,s.stopLoss),last.time,s.reasons.joinToString(" + "))
+            if (!s.tradeFiltersPassed) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,"Analytical setup only: current spread and/or complete news calendar is missing")
             marks+=m(Tag.ENTRY,last,last,s.entry,s.entry,last.time,"Analytical level only; no order sent")
             marks+=m(Tag.STOP_LOSS,last,last,s.stopLoss,s.stopLoss,last.time,"Risk level only")
             marks+=m(Tag.TAKE_PROFIT_1,last,last,s.takeProfit1,s.takeProfit1,last.time,"Target 1")
@@ -303,7 +324,7 @@ internal object SmartIctSuite {
         val warnings=mutableListOf<String>()
         if (input.relatedMarkets.isEmpty()) warnings+="SMT is awaiting synchronized related-market OHLC data."
         if (input.timeframes.isEmpty()) warnings+="MTF bias/confluence is awaiting actual timeframe candles."
-        if (input.news.isEmpty()) warnings+="No news events were supplied; empty calendar input does not mean no news."
+        if (input.news.isEmpty() || !cfg.newsCalendarComplete) warnings+="News calendar coverage is not confirmed; empty input does not mean no news."
         if (cfg.actualSpreadBps==null) warnings+="Spread is unavailable, so a signal is never cleared for execution."
         warnings+="Real-money/MT5 execution is intentionally disabled until a broker adapter and explicit user authorization exist."
         warnings+="Entry models are rule-based candidates; volume, macro, calendar and proprietary ICT judgement may require additional provider inputs."
@@ -383,7 +404,12 @@ internal object SmartIctSuite {
         o+=m(Tag.DRAW_ON_LIQUIDITY_HIGH,w.last(),w.last(),hi,hi,w.last().time,"Upper liquidity target candidate")
         o+=m(Tag.DRAW_ON_LIQUIDITY_LOW,w.last(),w.last(),lo,lo,w.last().time,"Lower liquidity target candidate")
         o+=m(Tag.RANGE_EXPANSION,w.last(),w.last(),lo,hi,w.last().time,"Range window; expansion needs confirmation")
-        o+=m(Tag.OTE,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"62-79% retracement; align with directional structure")
+        o+=m(Tag.OTE,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Generic 62-79% OTE range; use directional OTE marks")
+        o+=m(Tag.OTE_BULLISH,w.first(),w.last(),lo+(hi-lo)*0.21f,lo+(hi-lo)*0.38f,w.last().time,"Bullish 62-79% retracement from range high")
+        o+=m(Tag.OTE_BEARISH,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Bearish 62-79% retracement from range low")
+        o+=m(Tag.FIB_62,w.last(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.62f,w.last().time,"62% retracement reference")
+        o+=m(Tag.FIB_705,w.last(),w.last(),lo+(hi-lo)*0.705f,lo+(hi-lo)*0.705f,w.last().time,"70.5% OTE reference")
+        o+=m(Tag.FIB_79,w.last(),w.last(),lo+(hi-lo)*0.79f,lo+(hi-lo)*0.79f,w.last().time,"79% retracement reference")
     }
 
     private fun addCalendarSessionMarks(c:List<Candle>,zone:ZoneId,o:MutableList<Mark>) {
@@ -482,7 +508,7 @@ internal object SmartIctSuite {
         else if(bias.count { it.second!=0 }>=2)o+=m(Tag.MTF_CONFLUENCE,bars.first(),bars.last(),bars.minOf { it.low },bars.maxOf { it.high },bars.maxOf { it.time },"Multiple supplied timeframes aligned")
     }
 
-    private fun signal(bull:Boolean,c:List<Candle>,marks:List<Mark>,cfg:Config):Signal? {
+    private fun signal(bull:Boolean,c:List<Candle>,marks:List<Mark>,cfg:Config,tradeFiltersReady:Boolean):Signal? {
         val last=c.last(); val w=c.takeLast(20); val entry=last.close
         val sl=if(bull)w.minOf { it.low } else w.maxOf { it.high }; val risk=abs(entry-sl)
         if(!risk.isFinite()||risk<=0f)return null
@@ -491,7 +517,8 @@ internal object SmartIctSuite {
         val tp3=if(bull)max(w.maxOf { it.high },entry+3f*risk) else min(w.minOf { it.low },entry-3f*risk)
         val f=marks.count { it.confirmedAt>=c[max(0,c.lastIndex-5)].time && it.tag in setOf(Tag.FVG_BULLISH,Tag.FVG_BEARISH,Tag.MSS_BULLISH,Tag.MSS_BEARISH,Tag.CHOCH_BULLISH,Tag.CHOCH_BEARISH,Tag.EQH,Tag.EQL) }
         return Signal(bull,last.time,entry,sl,entry+(if(bull)1f else -1f)*risk,tp2,tp3,2f,
-            cfg.riskPercent.coerceIn(0.01f,2f),min(10,3+f),listOf("Liquidity raid","MSS/CHoCH","FVG confluence","2R plan"))
+            cfg.riskPercent.coerceIn(0.01f,2f),min(10,3+f),tradeFiltersReady,
+            listOf("Liquidity raid","MSS/CHoCH","FVG confluence","2R plan"))
     }
 
     private fun trueRanges(c:List<Candle>,p:Int):List<Float> {
