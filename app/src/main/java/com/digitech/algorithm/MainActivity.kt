@@ -26,6 +26,7 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.concurrent.thread
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
 class MainActivity : AppCompatActivity() {
 
@@ -184,6 +185,17 @@ super.onCreate(savedInstanceState)
         buildUI()
         refreshToolbar()
         loadMarketData()
+    }
+
+    private fun shareIctSwingDiagnosticReport() {
+        val report = if (::chart.isInitialized) chart.getIctSwingDiagnosticReport()
+            else "ICT swing diagnostic report is not ready yet."
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Digitech Algorithm ICT Swing Diagnostic")
+            putExtra(Intent.EXTRA_TEXT, report)
+        }
+        startActivity(Intent.createChooser(shareIntent, "Share ICT diagnostic report"))
     }
 
     private fun dp(value: Int): Int {
@@ -517,11 +529,35 @@ super.onCreate(savedInstanceState)
         signalBox.setPadding(dp(6), 0, dp(6), 0)
         signalBox.setBackgroundColor(Color.rgb(13, 17, 23))
 
+        val signalHeader = LinearLayout(this)
+        signalHeader.orientation = LinearLayout.HORIZONTAL
+        signalHeader.gravity = Gravity.CENTER_VERTICAL
+
         val signalTitle = TextView(this)
         signalTitle.text = "ICT AUTO ANALYSIS"
         signalTitle.textSize = 8f
+        signalTitle.setSingleLine(true)
         signalTitle.setTextColor(Color.LTGRAY)
         signalTitle.setSingleLine(true)
+        signalHeader.addView(signalTitle, LinearLayout.LayoutParams(
+            0, dp(24), 1f
+        ))
+
+        val diagnosticButton = TextView(this)
+        diagnosticButton.text = "LOG"
+        diagnosticButton.isAllCaps = true
+        diagnosticButton.setSingleLine(true)
+        diagnosticButton.setBackgroundColor(Color.rgb(24, 48, 47))
+        diagnosticButton.minHeight = dp(24)
+        diagnosticButton.minWidth = dp(48)
+        diagnosticButton.textSize = 9f
+        diagnosticButton.gravity = Gravity.CENTER
+        diagnosticButton.setTextColor(Color.rgb(30, 205, 160))
+        diagnosticButton.setPadding(dp(8), 0, dp(8), 0)
+        diagnosticButton.setOnClickListener { shareIctSwingDiagnosticReport() }
+        signalHeader.addView(diagnosticButton, LinearLayout.LayoutParams(
+            dp(48), dp(24)
+        ))
 
         streamStatusText = TextView(this)
         streamStatusText.text = "WEBSOCKET: CONNECTING"
@@ -537,8 +573,8 @@ super.onCreate(savedInstanceState)
         signalText.setSingleLine(true)
         signalText.ellipsize = android.text.TextUtils.TruncateAt.END
 
-        signalBox.addView(signalTitle, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
+        signalBox.addView(signalHeader, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(24)
         ))
         signalBox.addView(streamStatusText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
@@ -551,7 +587,7 @@ super.onCreate(savedInstanceState)
             signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(31)
+                dp(46)
             )
         )
 
@@ -653,7 +689,7 @@ super.onCreate(savedInstanceState)
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(20)
             )
             signalBox.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(25)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
             )
             chartToolScroll.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(31)

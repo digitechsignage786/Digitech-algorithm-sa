@@ -69,6 +69,7 @@ enum class DrawingTool {
 class CandlestickChartView(context: Context) : View(context) {
     // Temporary diagnostics: log only when visible swing-to-candle mappings change.
     private var lastIctSwingDiagnosticSignature: String = ""
+    private var lastIctSwingDiagnosticReport: String = "ICT swing diagnostics waiting for chart data."
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -2091,7 +2092,34 @@ class CandlestickChartView(context: Context) : View(context) {
         val diagnosticSignature = diagnosticRows.joinToString("|")
         if (diagnosticSignature.isNotEmpty() && diagnosticSignature != lastIctSwingDiagnosticSignature) {
             lastIctSwingDiagnosticSignature = diagnosticSignature
-            Log.d("ICT_SWING_VERIFY", "intervalMs=${pivots.firstOrNull()?.sourceIntervalMillis ?: -1L}; mappings=${diagnosticRows.joinToString(";")}")
+            val sourceInterval = pivots.firstOrNull()?.sourceIntervalMillis ?: -1L
+            // Diagnostic only: flag suspicious source-to-chart timestamp gaps.
+            // This intentionally does NOT change pivot detection or rendering.
+            val maxAllowedDelta = if (sourceInterval > 0L) sourceInterval else lastCandleIntervalMillis
+            val suspiciousMappings = diagnosticPivots.mapNotNull { pivot ->
+                val idx = nearestCurrentCandleIndex(pivot.sourceTime)
+                if (idx !in candles.indices) null else {
+                    val delta = candles[idx].time - pivot.sourceTime
+                    if (abs(delta) > maxAllowedDelta) {
+                        "${pivot.kind}:deltaMs=${delta},limitMs=${maxAllowedDelta},source=${pivot.sourceTime},chart=${candles[idx].time}"
+                    } else null
+                }
+            }
+            lastIctSwingDiagnosticReport = buildString {
+                appendLine("Digitech Algorithm — ICT Swing Mapping Diagnostic")
+                appendLine("Interval ms: $sourceInterval")
+                appendLine("Maximum allowed timestamp delta ms: $maxAllowedDelta")
+                appendLine("Mappings:")
+                diagnosticRows.forEach { appendLine(it) }
+                appendLine("Suspicious mappings:")
+                if (suspiciousMappings.isEmpty()) appendLine("None detected in this sample.")
+                else suspiciousMappings.forEach { appendLine(it) }
+                appendLine("Note: diagnostic only; not proof of correct ICT detection.")
+            }
+            Log.d(
+                "ICT_SWING_VERIFY",
+                "intervalMs=${sourceInterval};maxAllowedDeltaMs=${maxAllowedDelta};mappings=${diagnosticRows.joinToString(";")};suspicious=${suspiciousMappings.joinToString(";")}"
+            )
         }
         // Primary structure remains visible, but only the most recent confirmed
         // visible pivots receive labels/levels. Older structure stays in the
@@ -3971,6 +3999,8 @@ class CandlestickChartView(context: Context) : View(context) {
 
         invalidate()
     }
+
+    fun getIctSwingDiagnosticReport(): String = lastIctSwingDiagnosticReport
 
     fun setCandles(
         newCandles: List<Candle>
