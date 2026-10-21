@@ -56,7 +56,7 @@ class SmartIctSuiteTest {
     }
 
     @Test fun backtestReportsInsufficientHistoryHonestly() {
-        val stats = SmartIctSuite.backtest(SmartIctSuite.Input(bars()))
+        val stats = SmartIctSuite.backtest(SmartIctSuite.Input(bars().take(6)))
         assertNotNull(stats)
         assertTrue(stats.coverageNote.contains("NOT ENOUGH DATA"))
         assertTrue(stats.trades == 0)
