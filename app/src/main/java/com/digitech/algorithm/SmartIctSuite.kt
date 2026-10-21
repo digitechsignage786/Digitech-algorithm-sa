@@ -410,6 +410,29 @@ internal object SmartIctSuite {
         if(today.isNotEmpty())o+=m(Tag.DAILY_OPEN,today.first(),today.first(),today.first().open,today.first().open,today.first().time,"First supplied candle of local day")
         val currentWeek=dated.filter { it.second.get(wf.weekBasedYear())==weekKey.first && it.second.get(wf.weekOfWeekBasedYear())==weekKey.second }.map { it.first }
         if(currentWeek.isNotEmpty())o+=m(Tag.WEEKLY_OPEN,currentWeek.first(),currentWeek.first(),currentWeek.first().open,currentWeek.first().open,currentWeek.first().time,"First supplied candle of local week")
+        // Directional bias is computed from supplied completed period closes, not guessed future data.
+        val dayKeys=days.keys.sorted()
+        if(dayKeys.size>=2) {
+            val current=days.getValue(dayKeys.last()).map { it.first }; val previous=days.getValue(dayKeys[dayKeys.lastIndex-1]).map { it.first }
+            val tag=if(current.last().close>=previous.last().close)Tag.DAILY_BIAS_BULLISH else Tag.DAILY_BIAS_BEARISH
+            o+=m(tag,current.first(),current.last(),current.minOf { it.low },current.maxOf { it.high },current.last().time,"Local daily close compared with prior supplied day")
+        }
+        val sortedWeeks=weeks.keys.sortedWith(compareBy<Pair<Int,Int>> { it.first }.thenBy { it.second })
+        if(sortedWeeks.size>=2) {
+            val current=weeks.getValue(sortedWeeks.last()).map { it.first }; val previous=weeks.getValue(sortedWeeks[sortedWeeks.lastIndex-1]).map { it.first }
+            val tag=if(current.last().close>=previous.last().close)Tag.WEEKLY_BIAS_BULLISH else Tag.WEEKLY_BIAS_BEARISH
+            o+=m(tag,current.first(),current.last(),current.minOf { it.low },current.maxOf { it.high },current.last().time,"Weekly close compared with prior supplied week")
+        }
+        val months=dated.groupBy { it.second.year*100+it.second.monthValue }.toSortedMap()
+        if(months.size>=2) {
+            val keys=months.keys.toList(); val current=months.getValue(keys.last()).map { it.first }; val previous=months.getValue(keys[keys.lastIndex-1]).map { it.first }
+            val tag=if(current.last().close>=previous.last().close)Tag.MONTHLY_BIAS_BULLISH else Tag.MONTHLY_BIAS_BEARISH
+            o+=m(tag,current.first(),current.last(),current.minOf { it.low },current.maxOf { it.high },current.last().time,"Monthly close compared with prior supplied month")
+        }
+        val latest=c.last(); val latestTime=Instant.ofEpochMilli(latest.time).atZone(zone).toLocalTime()
+        val minute=latestTime.hour*60+latestTime.minute
+        if(minute in 590..610 || minute in 650..670 || minute in 830..850 || minute in 915..945)
+            o+=m(Tag.MACRO_WINDOW,latest,latest,latest.low,latest.high,latest.time,"ICT macro time window in configured time zone")
         val sessions=dated.groupBy { pair ->
             val z=pair.second; val h=z.hour
             val s=when { h>=19||h<=1->"ASIA"; h in 2..5->"LONDON"; h in 7..9->"NY_AM"; h in 13..16->"NY_PM"; h in 10..12->"LONDON_CLOSE"; else->"OTHER" }
@@ -422,6 +445,7 @@ internal object SmartIctSuite {
             val tag=when(key.second){"ASIA"->Tag.ASIA_RANGE;"LONDON"->Tag.LONDON_KILL_ZONE;"NY_AM"->Tag.NY_AM_KILL_ZONE;"NY_PM"->Tag.NY_PM;else->Tag.LONDON_CLOSE}
             val note=key.second+" observed range in "+zone.id+"; partial if session candles are incomplete"
             o+=m(tag,bars.first(),bars.last(),lo,hi,bars.last().time,note)
+            o+=m(Tag.SESSION_OPEN,bars.first(),bars.first(),bars.first().open,bars.first().open,bars.first().time,key.second+" open")
             o+=m(Tag.SESSION_HIGH,bars.first(),bars.last(),hi,hi,bars.last().time,key.second+" high")
             o+=m(Tag.SESSION_LOW,bars.first(),bars.last(),lo,lo,bars.last().time,key.second+" low")
         }
