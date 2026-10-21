@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - ict-bos-confirmation-index-fix-v1
+      - ict-bos-log-test-package-v1
 
 jobs:
   build:
