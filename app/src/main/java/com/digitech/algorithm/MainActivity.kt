@@ -543,7 +543,7 @@ super.onCreate(savedInstanceState)
         signalBox.addView(streamStatusText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
         ))
-        signalBox.addView(signal, LinearLayout.LayoutParams(
+        signalBox.addView(signalText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
         ))
 
