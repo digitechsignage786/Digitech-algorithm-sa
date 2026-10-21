@@ -431,6 +431,7 @@ class CandlestickChartView(context: Context) : View(context) {
             drawCandles(canvas)
             // ICT structure overlays: confirmed pivots only, directly on the main chart.
             drawIctStructureOverlays(canvas)
+            drawSmartIctEngineOverlays(canvas)
             drawCurrentPrice(canvas)
             drawPriceScale(canvas)
             drawTimeScale(canvas)
@@ -1001,6 +1002,91 @@ class CandlestickChartView(context: Context) : View(context) {
                 // V10 — ICT Concept #10: Equal Highs. Same-source only.
                 drawIctEqualHighs(canvas, liquiditySource, highest, lowest, left, right, step, candleW, policy)
                 drawIctEqualLows(canvas, liquiditySource, highest, lowest, left, right, step, candleW, policy)
+            }
+        }
+    }
+
+
+    // Additive Smart ICT engine overlay. Existing locked ICT structure renderers
+    // remain unchanged; this layer draws only deterministic event results.
+    private fun drawSmartIctEngineOverlays(canvas: Canvas) {
+        if (candles.size < 5) return
+        val result = SmartIctEngine.analyze(candles.toList())
+        if (result.events.isEmpty()) return
+        val range = visibleRange()
+        val highest = range.first
+        val lowest = range.second
+        val priceSpan = (highest - lowest).coerceAtLeast(0.0000001f)
+        val top = chartTop()
+        val bottom = chartBottom()
+        val left = chartLeft()
+        val right = chartRight()
+        val step = candleStep().coerceAtLeast(0.001f)
+        val candleIndex = candles.withIndex().associate { it.value.time to it.index }
+        fun xFor(time: Long): Float {
+            val index = candleIndex[time] ?: candles.indexOfLast { it.time <= time }
+            return left + offsetX + index.coerceAtLeast(0) * step + step / 2f
+        }
+        fun yFor(price: Float): Float = top + ((highest - price) / priceSpan) * (bottom - top)
+        val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; alpha = 28 }
+        val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1.4f }
+        val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11f; textAlign = Paint.Align.LEFT }
+        val visibleEvents = result.events.filter {
+            it.kind in setOf(
+                SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
+                SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH,
+                SmartIctEngine.Kind.BOS_BULLISH, SmartIctEngine.Kind.BOS_BEARISH,
+                SmartIctEngine.Kind.CHOCH_BULLISH, SmartIctEngine.Kind.CHOCH_BEARISH,
+                SmartIctEngine.Kind.EQH, SmartIctEngine.Kind.EQL,
+                SmartIctEngine.Kind.EQUILIBRIUM
+            )
+        }
+        // Keep the display bounded on long histories and avoid repainting invalidated zones.
+        for (event in visibleEvents.takeLast(120)) {
+            if (event.invalidated && event.kind in setOf(
+                    SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
+                    SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH
+                )) continue
+            val x1 = xFor(event.startTime).coerceIn(left, right)
+            val x2 = xFor(event.endTime).coerceIn(left, right)
+            val y1 = yFor(event.high).coerceIn(top, bottom)
+            val y2 = yFor(event.low).coerceIn(top, bottom)
+            when (event.kind) {
+                SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
+                SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH -> {
+                    val bullish = event.kind == SmartIctEngine.Kind.FVG_BULLISH ||
+                        event.kind == SmartIctEngine.Kind.ORDER_BLOCK_BULLISH
+                    val color = if (bullish) Color.rgb(30, 190, 140) else Color.rgb(235, 70, 90)
+                    fill.color = color
+                    line.color = color
+                    val rect = RectF(min(x1, x2), min(y1, y2), max(x1, x2).coerceAtLeast(min(x1, x2)+step), max(y1, y2))
+                    canvas.drawRect(rect, fill)
+                    canvas.drawRect(rect, line)
+                    label.color = color
+                    val tag = when (event.kind) {
+                        SmartIctEngine.Kind.FVG_BULLISH -> "FVG+"
+                        SmartIctEngine.Kind.FVG_BEARISH -> "FVG-"
+                        SmartIctEngine.Kind.ORDER_BLOCK_BULLISH -> "OB+"
+                        else -> "OB-"
+                    }
+                    canvas.drawText(tag, rect.left + 2f, (rect.top + 12f).coerceIn(top + 12f, bottom), label)
+                }
+                SmartIctEngine.Kind.EQUILIBRIUM -> {
+                    line.color = Color.rgb(230, 185, 70)
+                    line.pathEffect = DashPathEffect(floatArrayOf(5f, 5f), 0f)
+                    canvas.drawLine(left, y1, right, y1, line)
+                    line.pathEffect = null
+                    label.color = Color.rgb(230, 185, 70)
+                    canvas.drawText("EQ 50%", left + 4f, (y1 - 3f).coerceIn(top + 10f, bottom), label)
+                }
+                else -> {
+                    val bullish = event.kind == SmartIctEngine.Kind.BOS_BULLISH ||
+                        event.kind == SmartIctEngine.Kind.CHOCH_BULLISH
+                    line.color = if (bullish) Color.rgb(30, 190, 140) else Color.rgb(235, 70, 90)
+                    canvas.drawLine(x1, y1, x2, y1, line)
+                    label.color = line.color
+                    canvas.drawText(event.kind.name.replace("_", " "), x2.coerceIn(left, right - 90f), (y1 - 4f).coerceIn(top + 10f, bottom), label)
+                }
             }
         }
     }
