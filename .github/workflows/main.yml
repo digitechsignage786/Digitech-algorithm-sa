@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - bos-test-package-id
+      - ict-swing-diagnostic
 
 jobs:
   build:
