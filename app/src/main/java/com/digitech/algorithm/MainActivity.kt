@@ -260,7 +260,6 @@ super.onCreate(savedInstanceState)
         topButton("IND", 36, 8f) { showTools() }
         topButton("⛶", 30, 17f)
         topButton("⚙", 30, 15f) { showTools() }
-        topButton("LOG", 32, 9f) { shareIctSwingDiagnosticReport() }
 
         root.addView(
             topBar,
@@ -530,11 +529,29 @@ super.onCreate(savedInstanceState)
         signalBox.setPadding(dp(6), 0, dp(6), 0)
         signalBox.setBackgroundColor(Color.rgb(13, 17, 23))
 
+        val signalHeader = LinearLayout(this)
+        signalHeader.orientation = LinearLayout.HORIZONTAL
+        signalHeader.gravity = Gravity.CENTER_VERTICAL
+
         val signalTitle = TextView(this)
         signalTitle.text = "ICT AUTO ANALYSIS"
         signalTitle.textSize = 8f
         signalTitle.setTextColor(Color.LTGRAY)
         signalTitle.setSingleLine(true)
+        signalHeader.addView(signalTitle, LinearLayout.LayoutParams(
+            0, dp(14), 1f
+        ))
+
+        val diagnosticButton = TextView(this)
+        diagnosticButton.text = "LOG"
+        diagnosticButton.textSize = 9f
+        diagnosticButton.gravity = Gravity.CENTER
+        diagnosticButton.setTextColor(Color.rgb(30, 205, 160))
+        diagnosticButton.setPadding(dp(8), 0, dp(8), 0)
+        diagnosticButton.setOnClickListener { shareIctSwingDiagnosticReport() }
+        signalHeader.addView(diagnosticButton, LinearLayout.LayoutParams(
+            dp(42), dp(18)
+        ))
 
         streamStatusText = TextView(this)
         streamStatusText.text = "WEBSOCKET: CONNECTING"
@@ -550,8 +567,8 @@ super.onCreate(savedInstanceState)
         signalText.setSingleLine(true)
         signalText.ellipsize = android.text.TextUtils.TruncateAt.END
 
-        signalBox.addView(signalTitle, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
+        signalBox.addView(signalHeader, LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(14)
         ))
         signalBox.addView(streamStatusText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
