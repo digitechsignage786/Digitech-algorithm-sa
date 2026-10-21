@@ -1085,8 +1085,9 @@ super.onCreate(savedInstanceState)
         replayIndex = -1
 
         stopMarketStreams()
-        chart.clearCandles()
-
+        // Keep the last rendered chart visible while replacement history loads.
+        // A transient HTTP/WebSocket reconnect must not flash the chart to blank.
+        // The live candle buffer is still reset for the newly selected market/timeframe.
         synchronized(liveLock) {
             liveCandles.clear()
         }
