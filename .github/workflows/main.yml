@@ -2,6 +2,9 @@ name: Build Digitech Algorithm
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - bos-test-package-id
 
 jobs:
   build:
