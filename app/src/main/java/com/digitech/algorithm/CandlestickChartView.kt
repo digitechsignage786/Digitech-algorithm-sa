@@ -1112,7 +1112,8 @@ class CandlestickChartView(context: Context) : View(context) {
             val config = SmartIctSuite.Config(
                 nowMillis = nowMillis,
                 feedState = feedState,
-                maxDataAgeMillis = 120_000L
+                maxDataAgeMillis = 120_000L,
+                latestFeedTimeMillis = liveTickTimeMillis
             )
             result = SmartIctSuite.analyze(SmartIctSuite.Input(
                 candles = candles.toList(),
@@ -1149,6 +1150,7 @@ class CandlestickChartView(context: Context) : View(context) {
         }
         val zoneTags = setOf(
             SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.IFVG_BEARISH,
+            SmartIctSuite.Tag.OTE_BULLISH, SmartIctSuite.Tag.OTE_BEARISH,
             SmartIctSuite.Tag.BPR, SmartIctSuite.Tag.BREAKER_BULLISH,
             SmartIctSuite.Tag.BREAKER_BEARISH, SmartIctSuite.Tag.MITIGATION_BLOCK,
             SmartIctSuite.Tag.OTE, SmartIctSuite.Tag.ASIA_RANGE,
@@ -1170,13 +1172,16 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.DAILY_BIAS_BULLISH, SmartIctSuite.Tag.DAILY_BIAS_BEARISH,
             SmartIctSuite.Tag.WEEKLY_BIAS_BULLISH, SmartIctSuite.Tag.WEEKLY_BIAS_BEARISH,
             SmartIctSuite.Tag.MONTHLY_BIAS_BULLISH, SmartIctSuite.Tag.MONTHLY_BIAS_BEARISH,
+            SmartIctSuite.Tag.MIDNIGHT_OPEN, SmartIctSuite.Tag.SESSION_OPEN,
             SmartIctSuite.Tag.MACRO_WINDOW, SmartIctSuite.Tag.FVG_OB_ENTRY,
             SmartIctSuite.Tag.BREAKER_FVG_ENTRY, SmartIctSuite.Tag.OTE_ENTRY,
             SmartIctSuite.Tag.TURTLE_SOUP, SmartIctSuite.Tag.JUDAS_SWING,
             SmartIctSuite.Tag.SILVER_BULLET, SmartIctSuite.Tag.ICT_2022_MODEL,
             SmartIctSuite.Tag.POWER_OF_THREE, SmartIctSuite.Tag.MMXM,
             SmartIctSuite.Tag.MTF_CONFLUENCE, SmartIctSuite.Tag.MTF_CONFLICT,
-            SmartIctSuite.Tag.NO_TRADE, SmartIctSuite.Tag.OPENING_GAP
+            SmartIctSuite.Tag.NO_TRADE, SmartIctSuite.Tag.OPENING_GAP,
+            SmartIctSuite.Tag.FVG_PARTIAL_FILL, SmartIctSuite.Tag.FVG_FULL_FILL,
+            SmartIctSuite.Tag.FVG_INVALIDATED, SmartIctSuite.Tag.SESSION_HIGH, SmartIctSuite.Tag.SESSION_LOW
         )
         val displayTags = zoneTags + levelTags
         val visible = result.marks
