@@ -26,6 +26,7 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.concurrent.thread
 
+import android.content.Intent
 import android.content.pm.ActivityInfo
 class MainActivity : AppCompatActivity() {
 
@@ -186,6 +187,17 @@ super.onCreate(savedInstanceState)
         loadMarketData()
     }
 
+    private fun shareIctSwingDiagnosticReport() {
+        val report = if (::chart.isInitialized) chart.getIctSwingDiagnosticReport()
+            else "ICT swing diagnostic report is not ready yet."
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_SUBJECT, "Digitech Algorithm ICT Swing Diagnostic")
+            putExtra(Intent.EXTRA_TEXT, report)
+        }
+        startActivity(Intent.createChooser(shareIntent, "Share ICT diagnostic report"))
+    }
+
     private fun dp(value: Int): Int {
         return (value * resources.displayMetrics.density + 0.5f).toInt()
     }
@@ -248,6 +260,7 @@ super.onCreate(savedInstanceState)
         topButton("IND", 36, 8f) { showTools() }
         topButton("⛶", 30, 17f)
         topButton("⚙", 30, 15f) { showTools() }
+        topButton("LOG", 32, 9f) { shareIctSwingDiagnosticReport() }
 
         root.addView(
             topBar,
