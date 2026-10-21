@@ -6,6 +6,7 @@ on:
     branches:
       - ict-bos-confirmation-index-fix-v1
       - ict-bos-log-test-package-v1
+      - smart-ict-complete-integration-v1
 
 jobs:
   build:
