@@ -61,4 +61,38 @@ class SmartIctSuiteTest {
         assertTrue(stats.coverageNote.contains("NOT ENOUGH DATA"))
         assertTrue(stats.trades == 0)
     }
+
+    @Test fun masterConceptFamiliesAreRepresentedInTheSuite() {
+        val tags = SmartIctSuite.Tag.values().map { it.name }.toSet()
+        val required = setOf(
+            "BOS_BULLISH", "CHOCH_BEARISH", "MSS_BULLISH", "PROTECTED_HIGH",
+            "SHORT_TERM_HIGH", "INTERMEDIATE_TERM_LOW", "LONG_TERM_HIGH",
+            "BSL", "SSL", "EQH", "EQL", "LIQUIDITY_SWEEP_BUY", "IRL", "ERL",
+            "FVG_BULLISH", "IFVG_BEARISH", "BPR", "CE_50", "FVG_PARTIAL_FILL",
+            "FVG_FULL_FILL", "FVG_INVALIDATED", "DISPLACEMENT_BULLISH",
+            "ORDER_BLOCK_BULLISH", "BREAKER_BEARISH", "MITIGATION_BLOCK",
+            "REJECTION_BLOCK", "PROPULSION_BLOCK", "VACUUM_BLOCK",
+            "PREMIUM", "DISCOUNT", "EQUILIBRIUM", "OTE_BULLISH", "FIB_62", "FIB_705", "FIB_79",
+            "ASIA_RANGE", "LONDON_KILL_ZONE", "NY_AM_KILL_ZONE", "NY_PM", "LONDON_CLOSE",
+            "PDH", "PDL", "PWH", "PWL", "DAILY_OPEN", "WEEKLY_OPEN", "MIDNIGHT_OPEN", "MACRO_WINDOW",
+            "SILVER_BULLET", "JUDAS_SWING", "TURTLE_SOUP", "UNICORN", "ICT_2022_MODEL",
+            "POWER_OF_THREE", "MMXM", "SMT_BULLISH", "SMT_BEARISH",
+            "HTF_BIAS_BULLISH", "MTF_CONFLUENCE", "MTF_CONFLICT",
+            "BUY_SETUP", "SELL_SETUP", "ENTRY", "STOP_LOSS", "TAKE_PROFIT_1",
+            "TAKE_PROFIT_2", "TAKE_PROFIT_3", "NO_TRADE", "NEWS_WARNING",
+            "SPREAD_WARNING", "STALE_DATA_WARNING", "AMD_ACCUMULATION",
+            "AMD_MANIPULATION", "AMD_DISTRIBUTION", "FVG_OB_ENTRY", "BREAKER_FVG_ENTRY", "OTE_ENTRY"
+        )
+        assertTrue("Missing master tags: " + (required - tags), tags.containsAll(required))
+    }
+
+    @Test fun unknownSpreadAndCalendarCannotClearExecutionFilters() {
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = bars(),
+            config = SmartIctSuite.Config(newsCalendarComplete = false, actualSpreadBps = null)
+        ))
+        assertTrue(result.warnings.any { it.contains("News calendar coverage is not confirmed") })
+        assertTrue(result.warnings.any { it.contains("Spread is unavailable") })
+        assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
+    }
 }
