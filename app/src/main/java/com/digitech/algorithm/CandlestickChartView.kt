@@ -70,6 +70,8 @@ class CandlestickChartView(context: Context) : View(context) {
     // Temporary diagnostics: log only when visible swing-to-candle mappings change.
     private var lastIctSwingDiagnosticSignature: String = ""
     private var lastIctSwingDiagnosticReport: String = "ICT swing diagnostics waiting for chart data."
+    // Diagnostic-only BOS audit, exposed through the existing LOG report on this test branch.
+    private var lastIctBosAuditReport: String = "ICT BOS audit waiting for chart data."
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -1278,6 +1280,35 @@ class CandlestickChartView(context: Context) : View(context) {
             .values
             .mapNotNull { sameBreak -> sameBreak.maxByOrNull { it.pivot.sourceIndex } }
             .sortedBy { it.breakIndex }
+
+        // Diagnostic-only audit: summarize confirmation timing and close-through
+        // BOS events. This report does not change detection or chart rendering.
+        val confirmedStructural = structural.filter {
+            it.sourceIndex in source.indices &&
+                it.confirmationIndex in source.indices &&
+                it.confirmationIndex >= it.sourceIndex
+        }
+        val invalidConfirmationCount = structural.size - confirmedStructural.size
+        val bosRows = deduplicatedEvents.takeLast(8).map { event ->
+            val p = event.pivot
+            val b = source[event.breakIndex]
+            "BOS:${if (event.bullish) "BULL" else "BEAR"}:pivotKind=${p.kind},pivotIndex=${p.sourceIndex},confirmIndex=${p.confirmationIndex},pivotTime=${p.sourceTime},pivotPrice=${p.price},breakIndex=${event.breakIndex},breakTime=${b.time},breakClose=${b.close},closeThrough=${if (event.bullish) b.close > p.price else b.close < p.price}"
+        }
+        lastIctBosAuditReport = buildString {
+            appendLine("ICT Swing/BOS Confirmation Audit (diagnostic only)")
+            appendLine("Source interval ms: ${pivots.firstOrNull()?.sourceIntervalMillis ?: -1L}")
+            appendLine("Source candles: ${source.size}")
+            appendLine("Structural pivots considered for current role: ${structural.size}")
+            appendLine("Pivots with valid confirmation index: ${confirmedStructural.size}")
+            appendLine("Invalid confirmation indexes: ${invalidConfirmationCount}")
+            appendLine("BOS events after close-through and deduplication: ${deduplicatedEvents.size}")
+            appendLine("Latest BOS events:")
+            if (bosRows.isEmpty()) appendLine("None detected in this sample.")
+            else bosRows.forEach { appendLine(it) }
+            appendLine("Rule: BOS must occur after pivot confirmation and candle close must cross pivot price; wick-only crossing is not BOS.")
+            appendLine("Note: this report audits detected events; it does not prove every ICT pivot is correctly detected.")
+        }
+        Log.d("ICT_SWING_VERIFY", lastIctBosAuditReport)
 
         // Render the latest four visible break events chronologically, rather
         // than taking the last four in pivot-detection order.
@@ -4010,7 +4041,7 @@ class CandlestickChartView(context: Context) : View(context) {
         invalidate()
     }
 
-    fun getIctSwingDiagnosticReport(): String = lastIctSwingDiagnosticReport
+    fun getIctSwingDiagnosticReport(): String = lastIctSwingDiagnosticReport + "\n\n" + lastIctBosAuditReport
 
     fun setCandles(
         newCandles: List<Candle>
