@@ -539,7 +539,7 @@ super.onCreate(savedInstanceState)
         signalTitle.setTextColor(Color.LTGRAY)
         signalTitle.setSingleLine(true)
         signalHeader.addView(signalTitle, LinearLayout.LayoutParams(
-            0, dp(14), 1f
+            0, dp(18), 1f
         ))
 
         val diagnosticButton = TextView(this)
@@ -568,7 +568,7 @@ super.onCreate(savedInstanceState)
         signalText.ellipsize = android.text.TextUtils.TruncateAt.END
 
         signalBox.addView(signalHeader, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(14)
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(18)
         ))
         signalBox.addView(streamStatusText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
@@ -581,7 +581,7 @@ super.onCreate(savedInstanceState)
             signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(31)
+                dp(35)
             )
         )
 
