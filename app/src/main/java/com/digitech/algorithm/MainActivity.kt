@@ -536,21 +536,27 @@ super.onCreate(savedInstanceState)
         val signalTitle = TextView(this)
         signalTitle.text = "ICT AUTO ANALYSIS"
         signalTitle.textSize = 8f
+        signalTitle.setSingleLine(true)
         signalTitle.setTextColor(Color.LTGRAY)
         signalTitle.setSingleLine(true)
         signalHeader.addView(signalTitle, LinearLayout.LayoutParams(
-            0, dp(18), 1f
+            0, dp(24), 1f
         ))
 
         val diagnosticButton = TextView(this)
         diagnosticButton.text = "LOG"
+        diagnosticButton.isAllCaps = true
+        diagnosticButton.setSingleLine(true)
+        diagnosticButton.setBackgroundColor(Color.rgb(24, 48, 47))
+        diagnosticButton.minHeight = dp(24)
+        diagnosticButton.minWidth = dp(48)
         diagnosticButton.textSize = 9f
         diagnosticButton.gravity = Gravity.CENTER
         diagnosticButton.setTextColor(Color.rgb(30, 205, 160))
         diagnosticButton.setPadding(dp(8), 0, dp(8), 0)
         diagnosticButton.setOnClickListener { shareIctSwingDiagnosticReport() }
         signalHeader.addView(diagnosticButton, LinearLayout.LayoutParams(
-            dp(42), dp(18)
+            dp(48), dp(24)
         ))
 
         streamStatusText = TextView(this)
@@ -568,7 +574,7 @@ super.onCreate(savedInstanceState)
         signalText.ellipsize = android.text.TextUtils.TruncateAt.END
 
         signalBox.addView(signalHeader, LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, dp(18)
+            LinearLayout.LayoutParams.MATCH_PARENT, dp(24)
         ))
         signalBox.addView(streamStatusText, LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, dp(11)
@@ -581,7 +587,7 @@ super.onCreate(savedInstanceState)
             signalBox,
             LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                dp(40)
+                dp(46)
             )
         )
 
@@ -683,7 +689,7 @@ super.onCreate(savedInstanceState)
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(20)
             )
             signalBox.layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT, dp(25)
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(46)
             )
             chartToolScroll.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(31)
