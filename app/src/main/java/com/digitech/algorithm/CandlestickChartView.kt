@@ -2086,7 +2086,9 @@ class CandlestickChartView(context: Context) : View(context) {
             if (idx !in candles.indices) null else {
                 val chartCandle = candles[idx]
                 val delta = chartCandle.time - pivot.sourceTime
-                "${pivot.kind}:src=${pivot.sourceTime},chart=${chartCandle.time},deltaMs=${delta},price=${pivot.price},chartHigh=${chartCandle.high},chartLow=${chartCandle.low}"
+                val exactTimeExpected = pivot.sourceIntervalMillis == lastCandleIntervalMillis
+                val priceDelta = if (pivot.high) chartCandle.high - pivot.price else pivot.price - chartCandle.low
+                "${pivot.kind}:src=${pivot.sourceTime},chart=${chartCandle.time},deltaMs=${delta},exactTimeExpected=${exactTimeExpected},timeMatch=${delta == 0L},price=${pivot.price},chartHigh=${chartCandle.high},chartLow=${chartCandle.low},pivotPriceDelta=${priceDelta}"
             }
         }
         val diagnosticSignature = diagnosticRows.joinToString("|")
@@ -2099,16 +2101,24 @@ class CandlestickChartView(context: Context) : View(context) {
             val suspiciousMappings = diagnosticPivots.mapNotNull { pivot ->
                 val idx = nearestCurrentCandleIndex(pivot.sourceTime)
                 if (idx !in candles.indices) null else {
-                    val delta = candles[idx].time - pivot.sourceTime
-                    if (abs(delta) > maxAllowedDelta) {
-                        "${pivot.kind}:deltaMs=${delta},limitMs=${maxAllowedDelta},source=${pivot.sourceTime},chart=${candles[idx].time}"
+                    val chartCandle = candles[idx]
+                    val delta = chartCandle.time - pivot.sourceTime
+                    val exactTimeExpected = pivot.sourceIntervalMillis == lastCandleIntervalMillis
+                    val priceDelta = if (pivot.high) chartCandle.high - pivot.price else pivot.price - chartCandle.low
+                    val timeSuspicious = if (exactTimeExpected) delta != 0L else abs(delta) > maxAllowedDelta
+                    val priceSuspicious = exactTimeExpected && abs(priceDelta) > 0.0000001f
+                    if (timeSuspicious || priceSuspicious) {
+                        "${pivot.kind}:timeSuspicious=${timeSuspicious},priceSuspicious=${priceSuspicious},deltaMs=${delta},limitMs=${maxAllowedDelta},source=${pivot.sourceTime},chart=${chartCandle.time},price=${pivot.price},chartHigh=${chartCandle.high},chartLow=${chartCandle.low},pivotPriceDelta=${priceDelta}"
                     } else null
                 }
             }
             lastIctSwingDiagnosticReport = buildString {
                 appendLine("Digitech Algorithm — ICT Swing Mapping Diagnostic")
-                appendLine("Interval ms: $sourceInterval")
+                appendLine("Source interval ms: $sourceInterval")
+                appendLine("Chart interval ms: $lastCandleIntervalMillis")
                 appendLine("Maximum allowed timestamp delta ms: $maxAllowedDelta")
+                appendLine("Exact timestamp required: ${sourceInterval == lastCandleIntervalMillis}")
+                appendLine("Pivot price must match candle extreme when intervals match.")
                 appendLine("Mappings:")
                 diagnosticRows.forEach { appendLine(it) }
                 appendLine("Suspicious mappings:")
