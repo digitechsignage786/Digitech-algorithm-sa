@@ -69,6 +69,7 @@ enum class DrawingTool {
 class CandlestickChartView(context: Context) : View(context) {
     // Temporary diagnostics: log only when visible swing-to-candle mappings change.
     private var lastIctSwingDiagnosticSignature: String = ""
+    private var lastIctSwingDiagnosticReport: String = "ICT swing diagnostics waiting for chart data."
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -2104,6 +2105,17 @@ class CandlestickChartView(context: Context) : View(context) {
                     } else null
                 }
             }
+            lastIctSwingDiagnosticReport = buildString {
+                appendLine("Digitech Algorithm — ICT Swing Mapping Diagnostic")
+                appendLine("Interval ms: $sourceInterval")
+                appendLine("Maximum allowed timestamp delta ms: $maxAllowedDelta")
+                appendLine("Mappings:")
+                diagnosticRows.forEach { appendLine(it) }
+                appendLine("Suspicious mappings:")
+                if (suspiciousMappings.isEmpty()) appendLine("None detected in this sample.")
+                else suspiciousMappings.forEach { appendLine(it) }
+                appendLine("Note: diagnostic only; not proof of correct ICT detection.")
+            }
             Log.d(
                 "ICT_SWING_VERIFY",
                 "intervalMs=${sourceInterval};maxAllowedDeltaMs=${maxAllowedDelta};mappings=${diagnosticRows.joinToString(";")};suspicious=${suspiciousMappings.joinToString(";")}"
@@ -3987,6 +3999,8 @@ class CandlestickChartView(context: Context) : View(context) {
 
         invalidate()
     }
+
+    fun getIctSwingDiagnosticReport(): String = lastIctSwingDiagnosticReport
 
     fun setCandles(
         newCandles: List<Candle>
