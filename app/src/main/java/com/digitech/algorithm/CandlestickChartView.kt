@@ -10,6 +10,7 @@ import android.graphics.Typeface
 import android.view.MotionEvent
 import android.view.ScaleGestureDetector
 import android.view.View
+import android.util.Log
 import android.content.SharedPreferences
 import org.json.JSONArray
 import org.json.JSONObject
@@ -66,6 +67,8 @@ enum class DrawingTool {
 }
 
 class CandlestickChartView(context: Context) : View(context) {
+    // Temporary diagnostics: log only when visible swing-to-candle mappings change.
+    private var lastIctSwingDiagnosticSignature: String = ""
 
     private val gridPaint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val textPaint = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -2072,6 +2075,23 @@ class CandlestickChartView(context: Context) : View(context) {
         val visibleOrdered = ordered.filter {
             val idx = nearestCurrentCandleIndex(it.sourceTime)
             idx in visibleIndexRange
+        }
+
+        // TEMP ICT SWING DIAGNOSTIC (test branch only): record source/chart time mapping.
+        // This does not alter detection, rendering, candle data, or chart interaction.
+        val diagnosticPivots = visibleOrdered.takeLast(6)
+        val diagnosticRows = diagnosticPivots.mapNotNull { pivot ->
+            val idx = nearestCurrentCandleIndex(pivot.sourceTime)
+            if (idx !in candles.indices) null else {
+                val chartCandle = candles[idx]
+                val delta = chartCandle.time - pivot.sourceTime
+                "${pivot.kind}:src=${pivot.sourceTime},chart=${chartCandle.time},deltaMs=${delta},price=${pivot.price},chartHigh=${chartCandle.high},chartLow=${chartCandle.low}"
+            }
+        }
+        val diagnosticSignature = diagnosticRows.joinToString("|")
+        if (diagnosticSignature.isNotEmpty() && diagnosticSignature != lastIctSwingDiagnosticSignature) {
+            lastIctSwingDiagnosticSignature = diagnosticSignature
+            Log.d("ICT_SWING_VERIFY", "intervalMs=${pivots.firstOrNull()?.sourceIntervalMillis ?: -1L}; mappings=${diagnosticRows.joinToString(";")}")
         }
         // Primary structure remains visible, but only the most recent confirmed
         // visible pivots receive labels/levels. Older structure stays in the
