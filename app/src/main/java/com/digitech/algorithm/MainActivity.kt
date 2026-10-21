@@ -1997,6 +1997,16 @@ super.onCreate(savedInstanceState)
 
             statusText.text = "LIVE"
             statusText.setTextColor(Color.rgb(30, 200, 140))
+
+            // Keep the ICT status row synchronized with the accepted real tick
+            // after the candle snapshot is applied as well as at tick receipt.
+            signalText.text = String.format(
+                Locale.US,
+                "LIVE DATA RECEIVED | %s | %.5f",
+                selectedSymbol,
+                latest.close.toDouble()
+            )
+            signalText.setTextColor(Color.rgb(30, 200, 140))
         }
     }
 
