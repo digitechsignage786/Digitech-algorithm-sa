@@ -28,7 +28,7 @@ internal object SmartIctSuite {
         RANGE_EXPANSION, PRICE_DELIVERY_RANGE,
         ASIA_RANGE, LONDON_KILL_ZONE, NY_AM_KILL_ZONE, NY_PM, LONDON_CLOSE, SESSION_OPEN, MACRO_WINDOW,
         DAILY_BIAS_BULLISH, DAILY_BIAS_BEARISH, WEEKLY_BIAS_BULLISH, WEEKLY_BIAS_BEARISH,
-        MONTHLY_BIAS_BULLISH, MONTHLY_BIAS_BEARISH,
+        MONTHLY_BIAS_BULLISH, MONTHLY_BIAS_BEARISH, MIDNIGHT_OPEN,
         PDH, PDL, PWH, PWL, DAILY_OPEN, WEEKLY_OPEN, SESSION_HIGH, SESSION_LOW,
         SILVER_BULLET, JUDAS_SWING, TURTLE_SOUP, UNICORN, ICT_2022_MODEL, POWER_OF_THREE,
         MMXM, AMD_ACCUMULATION, AMD_MANIPULATION, AMD_DISTRIBUTION,
@@ -309,7 +309,8 @@ internal object SmartIctSuite {
             blockers+="High-impact news in configured no-trade window"
             marks+=m(Tag.NEWS_WARNING,last,last,last.low,last.high,last.time,"High impact: " + hotNews.joinToString { it.title.ifBlank { it.currency } })
         }
-        if (cfg.actualSpreadBps!=null && cfg.actualSpreadBps>cfg.maxSpreadBps) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread gate blocked setup")
+        if (cfg.actualSpreadBps==null) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread source unavailable; analytical signal cannot pass execution filters")
+        else if (cfg.actualSpreadBps>cfg.maxSpreadBps) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread gate blocked setup")
         if (cfg.feedState!=FeedState.LIVE || now-feedTime>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
         val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
         if (!sessionOk) blockers+="Outside configured London/NY session"
