@@ -1147,7 +1147,21 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.SMT_BULLISH, SmartIctSuite.Tag.SMT_BEARISH,
             SmartIctSuite.Tag.ENTRY, SmartIctSuite.Tag.STOP_LOSS,
             SmartIctSuite.Tag.TAKE_PROFIT_1, SmartIctSuite.Tag.TAKE_PROFIT_2,
-            SmartIctSuite.Tag.TAKE_PROFIT_3
+            SmartIctSuite.Tag.TAKE_PROFIT_3,
+            SmartIctSuite.Tag.SHORT_TERM_HIGH, SmartIctSuite.Tag.SHORT_TERM_LOW,
+            SmartIctSuite.Tag.INTERMEDIATE_TERM_HIGH, SmartIctSuite.Tag.INTERMEDIATE_TERM_LOW,
+            SmartIctSuite.Tag.LONG_TERM_HIGH, SmartIctSuite.Tag.LONG_TERM_LOW,
+            SmartIctSuite.Tag.RELATIVE_EQUAL_HIGHS, SmartIctSuite.Tag.RELATIVE_EQUAL_LOWS,
+            SmartIctSuite.Tag.DAILY_BIAS_BULLISH, SmartIctSuite.Tag.DAILY_BIAS_BEARISH,
+            SmartIctSuite.Tag.WEEKLY_BIAS_BULLISH, SmartIctSuite.Tag.WEEKLY_BIAS_BEARISH,
+            SmartIctSuite.Tag.MONTHLY_BIAS_BULLISH, SmartIctSuite.Tag.MONTHLY_BIAS_BEARISH,
+            SmartIctSuite.Tag.MACRO_WINDOW, SmartIctSuite.Tag.FVG_OB_ENTRY,
+            SmartIctSuite.Tag.BREAKER_FVG_ENTRY, SmartIctSuite.Tag.OTE_ENTRY,
+            SmartIctSuite.Tag.TURTLE_SOUP, SmartIctSuite.Tag.JUDAS_SWING,
+            SmartIctSuite.Tag.SILVER_BULLET, SmartIctSuite.Tag.ICT_2022_MODEL,
+            SmartIctSuite.Tag.POWER_OF_THREE, SmartIctSuite.Tag.MMXM,
+            SmartIctSuite.Tag.MTF_CONFLUENCE, SmartIctSuite.Tag.MTF_CONFLICT,
+            SmartIctSuite.Tag.NO_TRADE, SmartIctSuite.Tag.OPENING_GAP
         )
         val displayTags = zoneTags + levelTags
         val visible = result.marks
