@@ -56,6 +56,8 @@ internal object SmartIctSuite {
         val actualSpreadBps: Float? = null, val newsBufferMinutes: Int = 15,
         val newsCalendarComplete: Boolean = false,
         val maxDataAgeMillis: Long = 120_000L, val nowMillis: Long? = null,
+        val latestFeedTimeMillis: Long? = null, val maxAtrPercent: Float = 2f,
+        val maxStopLossPercent: Float = 5f,
         val feedState: FeedState = FeedState.LIVE, val dailyLossPercent: Float = 0f,
         val dailyLossLimitPercent: Float = 3f, val riskPercent: Float = 1f,
         val minimumRiskReward: Float = 2f, val requireNyOrLondonSession: Boolean = false
@@ -293,8 +295,11 @@ internal object SmartIctSuite {
         val now=cfg.nowMillis ?: last.time
         val blockers=mutableListOf<String>()
         if (cfg.feedState!=FeedState.LIVE) blockers+="Feed state is " + cfg.feedState
-        if (now-last.time>cfg.maxDataAgeMillis) blockers+="Latest candle is stale"
+        val feedTime=cfg.latestFeedTimeMillis ?: last.time
+        if (now-feedTime>cfg.maxDataAgeMillis) blockers+="Latest feed tick is stale"
         if (cfg.dailyLossPercent>=cfg.dailyLossLimitPercent) blockers+="Daily loss limit reached"
+        val atrPercent=atr.last()/abs(last.close).coerceAtLeast(0.0000001f)*100f
+        if (atrPercent>cfg.maxAtrPercent) blockers+="ATR volatility exceeds configured maximum"
         val spreadReady=cfg.actualSpreadBps!=null && cfg.actualSpreadBps<=cfg.maxSpreadBps
         val tradeFiltersReady=spreadReady && cfg.newsCalendarComplete
         val currencies=currenciesFor(input.symbol)
@@ -305,7 +310,7 @@ internal object SmartIctSuite {
             marks+=m(Tag.NEWS_WARNING,last,last,last.low,last.high,last.time,"High impact: " + hotNews.joinToString { it.title.ifBlank { it.currency } })
         }
         if (cfg.actualSpreadBps!=null && cfg.actualSpreadBps>cfg.maxSpreadBps) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread gate blocked setup")
-        if (cfg.feedState!=FeedState.LIVE || now-last.time>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
+        if (cfg.feedState!=FeedState.LIVE || now-feedTime>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
         val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
         if (!sessionOk) blockers+="Outside configured London/NY session"
         if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
@@ -339,8 +344,9 @@ internal object SmartIctSuite {
         val first=startIndex.coerceAtLeast(5).coerceAtMost(c.lastIndex); val last=min(c.lastIndex,first+maxBars.coerceAtLeast(1))
         val results=mutableListOf<Float>()
         for(i in first until last) {
-            val prefix=c.take(i+1); val r=analyze(input.copy(candles=prefix,config=input.config.copy(nowMillis=prefix.last().time)))
+            val prefix=c.take(i+1); val r=analyze(input.copy(candles=prefix,config=input.config.copy(nowMillis=prefix.last().time,latestFeedTimeMillis=prefix.last().time,feedState=FeedState.LIVE)))
             val s=r.signals.lastOrNull() ?: continue
+            if (!s.tradeFiltersPassed) continue
             val risk=abs(s.entry-s.stopLoss).coerceAtLeast(0.0000001f)
             var outcome:Float?=null
             for(bar in c.drop(i+1).take(30)) {
@@ -434,6 +440,9 @@ internal object SmartIctSuite {
         }
         val today=days[latestDate].orEmpty().map { it.first }
         if(today.isNotEmpty())o+=m(Tag.DAILY_OPEN,today.first(),today.first(),today.first().open,today.first().open,today.first().time,"First supplied candle of local day")
+        dated.filter { it.second.hour==0 && it.second.minute==0 }.forEach { (bar, _) ->
+            o+=m(Tag.MIDNIGHT_OPEN,bar,bar,bar.open,bar.open,bar.time,"Observed midnight-open candle; omitted when feed lacks that timestamp")
+        }
         val currentWeek=dated.filter { it.second.get(wf.weekBasedYear())==weekKey.first && it.second.get(wf.weekOfWeekBasedYear())==weekKey.second }.map { it.first }
         if(currentWeek.isNotEmpty())o+=m(Tag.WEEKLY_OPEN,currentWeek.first(),currentWeek.first(),currentWeek.first().open,currentWeek.first().open,currentWeek.first().time,"First supplied candle of local week")
         // Directional bias is computed from supplied completed period closes, not guessed future data.
@@ -512,6 +521,7 @@ internal object SmartIctSuite {
         val last=c.last(); val w=c.takeLast(20); val entry=last.close
         val sl=if(bull)w.minOf { it.low } else w.maxOf { it.high }; val risk=abs(entry-sl)
         if(!risk.isFinite()||risk<=0f)return null
+        if(risk/abs(entry).coerceAtLeast(0.0000001f)*100f>cfg.maxStopLossPercent)return null
         val tp2=entry+(if(bull)2f else -2f)*risk
         if(abs(tp2-entry)/risk<cfg.minimumRiskReward)return null
         val tp3=if(bull)max(w.maxOf { it.high },entry+3f*risk) else min(w.minOf { it.low },entry-3f*risk)
