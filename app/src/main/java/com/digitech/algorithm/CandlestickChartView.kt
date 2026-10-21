@@ -1100,11 +1100,26 @@ class CandlestickChartView(context: Context) : View(context) {
     private fun drawSmartIctSuiteOverlays(canvas: Canvas) {
         if (candles.size < 5) return
         val last = candles.last()
+        val nowMillis = System.currentTimeMillis()
+        val feedState = if (liveTickTimeMillis > 0L && nowMillis - liveTickTimeMillis <= 120_000L)
+            SmartIctSuite.FeedState.LIVE else SmartIctSuite.FeedState.STALE
         val fingerprint = candles.size.toString() + ":" + candles.first().time + ":" +
-            last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close
+            last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close +
+            ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + feedState.name
         var result = smartIctSuiteCache
         if (result == null || fingerprint != smartIctSuiteCacheKey) {
-            result = SmartIctSuite.analyze(SmartIctSuite.Input(candles.toList(), symbol = liveSymbol))
+            val frames = buildSmartIctTimeframeContext()
+            val config = SmartIctSuite.Config(
+                nowMillis = nowMillis,
+                feedState = feedState,
+                maxDataAgeMillis = 120_000L
+            )
+            result = SmartIctSuite.analyze(SmartIctSuite.Input(
+                candles = candles.toList(),
+                symbol = liveSymbol,
+                timeframes = frames,
+                config = config
+            ))
             smartIctSuiteCacheKey = fingerprint
             smartIctSuiteCache = result
         }
@@ -1222,6 +1237,35 @@ class CandlestickChartView(context: Context) : View(context) {
                 canvas.drawText(tag, (right - 112f).coerceAtLeast(left), (y - 3f).coerceIn(top + 10f, bottom), label)
             }
         }
+    }
+
+    // Only aggregate from the candle interval actually present in the chart.
+    // Lower-timeframe data is omitted rather than fabricated from higher-timeframe bars.
+    private fun buildSmartIctTimeframeContext(): Map<String, List<Candle>> {
+        if (candles.size < 5) return emptyMap()
+        val base = lastCandleIntervalMillis.coerceAtLeast(60_000L)
+        val intervals = listOf(
+            "1m" to 60_000L, "5m" to 300_000L, "15m" to 900_000L,
+            "30m" to 1_800_000L, "1H" to 3_600_000L,
+            "4H" to 14_400_000L, "1D" to 86_400_000L, "1W" to 604_800_000L
+        )
+        val result = linkedMapOf<String, List<Candle>>()
+        for ((name, interval) in intervals) {
+            if (interval < base) continue
+            val bars = if (interval == base) candles.toList() else {
+                candles.groupBy { Math.floorDiv(it.time, interval) }.toSortedMap().values.map { group ->
+                    Candle(
+                        group.first().time,
+                        group.first().open,
+                        group.maxOf { it.high },
+                        group.minOf { it.low },
+                        group.last().close
+                    )
+                }
+            }
+            if (bars.size >= 5) result[name] = bars
+        }
+        return result
     }
 
     private enum class IctStructureRole {
