@@ -1320,6 +1320,26 @@ class CandlestickChartView(context: Context) : View(context) {
             }
             .takeLast(4)
 
+        // Diagnostic-only visual audit: tie visible BOS labels to source pivots
+        // and nearest chart candles. Does not change detection or rendering.
+        val visibleBosRows = visible.map { event ->
+            val p = event.pivot
+            val breakCandle = source[event.breakIndex]
+            val chartPivotIndex = nearestCurrentCandleIndex(p.sourceTime)
+            val chartBreakIndex = nearestCurrentCandleIndex(breakCandle.time)
+            val chartPivotTime = candles.getOrNull(chartPivotIndex)?.time ?: -1L
+            val chartBreakTime = candles.getOrNull(chartBreakIndex)?.time ?: -1L
+            "VISIBLE_BOS:@@{if (event.bullish) "BULL" else "BEAR"}:pivotKind=@@{p.kind},pivotSourceIndex=@@{p.sourceIndex},pivotTime=@@{p.sourceTime},pivotPrice=@@{p.price},chartPivotIndex=@@{chartPivotIndex},chartPivotTime=@@{chartPivotTime},pivotDeltaMs=@@{if (chartPivotTime >= 0L) chartPivotTime - p.sourceTime else Long.MIN_VALUE},breakSourceIndex=@@{event.breakIndex},breakTime=@@{breakCandle.time},breakClose=@@{breakCandle.close},chartBreakIndex=@@{chartBreakIndex},chartBreakTime=@@{chartBreakTime},breakDeltaMs=@@{if (chartBreakTime >= 0L) chartBreakTime - breakCandle.time else Long.MIN_VALUE},confirmationTime=@@{source.getOrNull(p.confirmationIndex)?.time ?: -1L},closeThrough=@@{if (event.bullish) breakCandle.close > p.price else breakCandle.close < p.price}"
+        }
+        lastIctBosAuditReport += buildString {
+            appendLine()
+            appendLine("Visible BOS-to-chart candle mapping (diagnostic only):")
+            if (visibleBosRows.isEmpty()) appendLine("No visible BOS events selected.")
+            else visibleBosRows.forEach { appendLine(it) }
+            appendLine("Note: compare this mapping with a screenshot taken at the same moment.")
+        }.replace("@@{", "$" + "{")
+        Log.d("ICT_SWING_VERIFY", lastIctBosAuditReport)
+
         for (event in visible) {
             val breakCandle = source[event.breakIndex]
             val pivotIndex = nearestCurrentCandleIndex(event.pivot.sourceTime)
