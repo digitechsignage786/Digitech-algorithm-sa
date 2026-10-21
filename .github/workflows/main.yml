@@ -6,6 +6,7 @@ on:
     branches:
       - bos-test-package-id
       - ict-swing-diagnostic
+      - ict-swing-mapping-diagnostic-v2
 
 jobs:
   build:
