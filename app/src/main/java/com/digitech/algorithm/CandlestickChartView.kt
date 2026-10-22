@@ -1148,19 +1148,35 @@ class CandlestickChartView(context: Context) : View(context) {
             textAlign = Paint.Align.LEFT
             typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
         }
+        // Core ICT price zones must be eligible for the automatic renderer.
+        // These are drawn only when the relevance filter below says they matter.
         val zoneTags = setOf(
+            SmartIctSuite.Tag.FVG_BULLISH, SmartIctSuite.Tag.FVG_BEARISH,
             SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.IFVG_BEARISH,
+            SmartIctSuite.Tag.ORDER_BLOCK_BULLISH, SmartIctSuite.Tag.ORDER_BLOCK_BEARISH,
             SmartIctSuite.Tag.OTE_BULLISH, SmartIctSuite.Tag.OTE_BEARISH,
             SmartIctSuite.Tag.BPR, SmartIctSuite.Tag.BREAKER_BULLISH,
             SmartIctSuite.Tag.BREAKER_BEARISH, SmartIctSuite.Tag.MITIGATION_BLOCK,
-            SmartIctSuite.Tag.OTE, SmartIctSuite.Tag.ASIA_RANGE,
-            SmartIctSuite.Tag.LONDON_KILL_ZONE, SmartIctSuite.Tag.NY_AM_KILL_ZONE,
-            SmartIctSuite.Tag.PREMIUM, SmartIctSuite.Tag.DISCOUNT
+            SmartIctSuite.Tag.REJECTION_BLOCK, SmartIctSuite.Tag.PROPULSION_BLOCK,
+            SmartIctSuite.Tag.VACUUM_BLOCK, SmartIctSuite.Tag.OTE,
+            SmartIctSuite.Tag.ASIA_RANGE, SmartIctSuite.Tag.LONDON_KILL_ZONE,
+            SmartIctSuite.Tag.NY_AM_KILL_ZONE, SmartIctSuite.Tag.PREMIUM,
+            SmartIctSuite.Tag.DISCOUNT, SmartIctSuite.Tag.EQUILIBRIUM,
+            SmartIctSuite.Tag.CE_50
         )
         val levelTags = setOf(
+            // Market structure and liquidity are first-class visible ICT concepts.
+            SmartIctSuite.Tag.BOS_BULLISH, SmartIctSuite.Tag.BOS_BEARISH,
+            SmartIctSuite.Tag.CHOCH_BULLISH, SmartIctSuite.Tag.CHOCH_BEARISH,
+            SmartIctSuite.Tag.MSS_BULLISH, SmartIctSuite.Tag.MSS_BEARISH,
+            SmartIctSuite.Tag.SWING_HIGH, SmartIctSuite.Tag.SWING_LOW,
+            SmartIctSuite.Tag.HH, SmartIctSuite.Tag.HL, SmartIctSuite.Tag.LH, SmartIctSuite.Tag.LL,
+            SmartIctSuite.Tag.BSL, SmartIctSuite.Tag.SSL,
+            SmartIctSuite.Tag.EQH, SmartIctSuite.Tag.EQL,
+            SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY, SmartIctSuite.Tag.LIQUIDITY_SWEEP_SELL,
+            SmartIctSuite.Tag.DRAW_ON_LIQUIDITY_HIGH, SmartIctSuite.Tag.DRAW_ON_LIQUIDITY_LOW,
             SmartIctSuite.Tag.PDH, SmartIctSuite.Tag.PDL, SmartIctSuite.Tag.PWH,
             SmartIctSuite.Tag.PWL, SmartIctSuite.Tag.DAILY_OPEN, SmartIctSuite.Tag.WEEKLY_OPEN,
-            SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY, SmartIctSuite.Tag.LIQUIDITY_SWEEP_SELL,
             SmartIctSuite.Tag.SMT_BULLISH, SmartIctSuite.Tag.SMT_BEARISH,
             SmartIctSuite.Tag.ENTRY, SmartIctSuite.Tag.STOP_LOSS,
             SmartIctSuite.Tag.TAKE_PROFIT_1, SmartIctSuite.Tag.TAKE_PROFIT_2,
@@ -1179,7 +1195,11 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.SILVER_BULLET, SmartIctSuite.Tag.ICT_2022_MODEL,
             SmartIctSuite.Tag.POWER_OF_THREE, SmartIctSuite.Tag.MMXM,
             SmartIctSuite.Tag.MTF_CONFLUENCE, SmartIctSuite.Tag.MTF_CONFLICT,
-            SmartIctSuite.Tag.NO_TRADE, SmartIctSuite.Tag.OPENING_GAP,
+            SmartIctSuite.Tag.BUY_SETUP, SmartIctSuite.Tag.SELL_SETUP,
+            SmartIctSuite.Tag.NO_TRADE, SmartIctSuite.Tag.NEWS_WARNING,
+            SmartIctSuite.Tag.SPREAD_WARNING, SmartIctSuite.Tag.STALE_DATA_WARNING,
+            SmartIctSuite.Tag.OPENING_GAP, SmartIctSuite.Tag.DISPLACEMENT_BULLISH,
+            SmartIctSuite.Tag.DISPLACEMENT_BEARISH,
             SmartIctSuite.Tag.FVG_PARTIAL_FILL, SmartIctSuite.Tag.FVG_FULL_FILL,
             SmartIctSuite.Tag.FVG_INVALIDATED, SmartIctSuite.Tag.SESSION_HIGH, SmartIctSuite.Tag.SESSION_LOW
         )
