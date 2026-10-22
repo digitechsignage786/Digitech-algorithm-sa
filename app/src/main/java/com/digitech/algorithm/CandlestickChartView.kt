@@ -1184,12 +1184,59 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.FVG_INVALIDATED, SmartIctSuite.Tag.SESSION_HIGH, SmartIctSuite.Tag.SESSION_LOW
         )
         val displayTags = zoneTags + levelTags
+        // Automatic ICT visibility: no manual per-concept switches. Keep active,
+        // recent, or price-relevant concepts; hide resolved stale zones so the
+        // chart stays readable. This only filters the additive ICT overlay.
+        val recentCutoff = candles.getOrNull((candles.lastIndex - 30).coerceAtLeast(0))?.time
+            ?: visibleStart
+        val lastPrice = last.close
+        val visiblePriceBand = span * 0.22f
+        val levelLikeTags = levelTags
         val visible = result.marks
             .filter { it.tag in displayTags && it.endTime >= visibleStart && it.startTime <= visibleEnd }
             .groupBy { it.tag }
             .values
-            .mapNotNull { it.lastOrNull() }
-            .takeLast(22)
+            .mapNotNull { events ->
+                events.lastOrNull { event ->
+                    val isLevel = event.tag in levelLikeTags
+                    val nearPrice = lastPrice >= event.low - visiblePriceBand &&
+                        lastPrice <= event.high + visiblePriceBand
+                    val recent = event.endTime >= recentCutoff
+                    val resolvedState = event.invalidated ||
+                        event.tag == SmartIctSuite.Tag.FVG_FULL_FILL ||
+                        event.tag == SmartIctSuite.Tag.FVG_INVALIDATED
+                    when {
+                        event.tag == SmartIctSuite.Tag.NO_TRADE ||
+                            event.tag == SmartIctSuite.Tag.NEWS_WARNING ||
+                            event.tag == SmartIctSuite.Tag.SPREAD_WARNING ||
+                            event.tag == SmartIctSuite.Tag.STALE_DATA_WARNING -> true
+                        resolvedState -> recent
+                        isLevel -> nearPrice || recent
+                        else -> nearPrice || recent
+                    }
+                }
+            }
+            .sortedWith(
+                compareByDescending<SmartIctSuite.Mark> { event ->
+                    when {
+                        event.tag == SmartIctSuite.Tag.BUY_SETUP ||
+                            event.tag == SmartIctSuite.Tag.SELL_SETUP ||
+                            event.tag == SmartIctSuite.Tag.ENTRY ||
+                            event.tag == SmartIctSuite.Tag.STOP_LOSS ||
+                            event.tag == SmartIctSuite.Tag.TAKE_PROFIT_1 -> 3
+                        event.tag == SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY ||
+                            event.tag == SmartIctSuite.Tag.LIQUIDITY_SWEEP_SELL ||
+                            event.tag == SmartIctSuite.Tag.BOS_BULLISH ||
+                            event.tag == SmartIctSuite.Tag.BOS_BEARISH ||
+                            event.tag == SmartIctSuite.Tag.CHOCH_BULLISH ||
+                            event.tag == SmartIctSuite.Tag.CHOCH_BEARISH ||
+                            event.tag == SmartIctSuite.Tag.MSS_BULLISH ||
+                            event.tag == SmartIctSuite.Tag.MSS_BEARISH -> 2
+                        else -> 1
+                    }
+                }.thenByDescending { it.endTime }
+            )
+            .take(18)
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
