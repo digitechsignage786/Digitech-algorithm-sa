@@ -18,7 +18,7 @@ internal object SmartIctSuite {
         RELATIVE_EQUAL_HIGHS, RELATIVE_EQUAL_LOWS, INTERNAL_STRUCTURE, EXTERNAL_STRUCTURE,
         BOS_BULLISH, BOS_BEARISH, CHOCH_BULLISH, CHOCH_BEARISH, MSS_BULLISH, MSS_BEARISH,
         PROTECTED_HIGH, PROTECTED_LOW, BSL, SSL, EQH, EQL, LIQUIDITY_SWEEP_BUY, LIQUIDITY_SWEEP_SELL,
-        IRL, ERL, DRAW_ON_LIQUIDITY_HIGH, DRAW_ON_LIQUIDITY_LOW,
+        IRL, ERL, DRAW_ON_LIQUIDITY_HIGH, DRAW_ON_LIQUIDITY_LOW, INDUCEMENT_BULLISH, INDUCEMENT_BEARISH, CISD_BULLISH, CISD_BEARISH, CRT_HIGH, CRT_LOW, CRT_MIDPOINT, IPDA_RANGE_20, IPDA_RANGE_40, IPDA_RANGE_60,
         FVG_BULLISH, FVG_BEARISH, FVG_PARTIAL_FILL, FVG_FULL_FILL, FVG_INVALIDATED,
         IFVG_BULLISH, IFVG_BEARISH, BPR, VOLUME_IMBALANCE,
         OPENING_GAP, DISPLACEMENT_BULLISH, DISPLACEMENT_BEARISH, CE_50,
@@ -241,6 +241,81 @@ internal object SmartIctSuite {
             if (pl!=null && candles[i].low<candles[pl].low && candles[i].close>candles[pl].low) {
                 marks+=m(Tag.LIQUIDITY_SWEEP_SELL,candles[pl],candles[i],candles[i].low,candles[pl].low,candles[i].time,"Sell-side sweep: wick through, close back above")
                 marks+=m(Tag.TURTLE_SOUP,candles[pl],candles[i],candles[i].low,candles[pl].low,candles[i].time,"Failed breakdown / Turtle Soup candidate")
+            }
+        }
+
+        // Additional ICT concepts: inducement, CISD, Candle Range Theory and IPDA ranges.
+        // All levels are derived only from supplied real candles; these are heuristic candidates.
+        val lastIndex = candles.lastIndex
+        val latestBar = candles[lastIndex]
+        val recentStart = max(0, lastIndex - 20)
+        val recentBars = candles.subList(recentStart, candles.size)
+        val crtSource = if (lastIndex > 0) candles[lastIndex - 1] else latestBar
+        val crtMid = (crtSource.high + crtSource.low) / 2f
+        marks += m(Tag.CRT_HIGH, crtSource, latestBar, crtSource.high, crtSource.high,
+            latestBar.time, "CRT reference high from prior supplied candle")
+        marks += m(Tag.CRT_LOW, crtSource, latestBar, crtSource.low, crtSource.low,
+            latestBar.time, "CRT reference low from prior supplied candle")
+        marks += m(Tag.CRT_MIDPOINT, crtSource, latestBar, crtMid, crtMid,
+            latestBar.time, "CRT 50% reference; range confirmation is required")
+        if (latestBar.high > crtSource.high && latestBar.close < crtSource.high)
+            marks += m(Tag.TURTLE_SOUP, crtSource, latestBar, crtSource.high, latestBar.high,
+                latestBar.time, "CRT upper-range raid and reclaim candidate")
+        if (latestBar.low < crtSource.low && latestBar.close > crtSource.low)
+            marks += m(Tag.TURTLE_SOUP, crtSource, latestBar, latestBar.low, crtSource.low,
+                latestBar.time, "CRT lower-range raid and reclaim candidate")
+
+        fun addIpdaRange(windowSize: Int, tag: Tag) {
+            if (candles.size >= windowSize) {
+                val w = candles.takeLast(windowSize)
+                marks += m(tag, w.first(), w.last(), w.minOf { it.low }, w.maxOf { it.high },
+                    w.last().time, "IPDA-style rolling range proxy over $windowSize supplied candles; not an official institutional dealing array")
+            }
+        }
+        addIpdaRange(20, Tag.IPDA_RANGE_20)
+        addIpdaRange(40, Tag.IPDA_RANGE_40)
+        addIpdaRange(60, Tag.IPDA_RANGE_60)
+
+        // Inducement candidate: a recent confirmed swing that is swept and reclaimed
+        // before a close-through of the opposite confirmed structure level.
+        for (i in max(1, lastIndex - 12)..lastIndex) {
+            val priorHigh = highs.lastOrNull { it + right < i }
+            val priorLow = lows.lastOrNull { it + right < i }
+            if (priorLow != null && candles[i].low < candles[priorLow].low &&
+                candles[i].close > candles[priorLow].low) {
+                marks += m(Tag.INDUCEMENT_BULLISH, candles[priorLow], candles[i],
+                    candles[i].low, candles[priorLow].low, candles[i].time,
+                    "Sell-side inducement/sweep candidate; confirm with displacement and structure")
+            }
+            if (priorHigh != null && candles[i].high > candles[priorHigh].high &&
+                candles[i].close < candles[priorHigh].high) {
+                marks += m(Tag.INDUCEMENT_BEARISH, candles[priorHigh], candles[i],
+                    candles[priorHigh].high, candles[i].high, candles[i].time,
+                    "Buy-side inducement/sweep candidate; confirm with displacement and structure")
+            }
+        }
+
+        // CISD proxy: after a recent liquidity sweep, close crosses the most recent
+        // opposing candle's open. This is explicitly labelled a proxy, not canonical ICT judgement.
+        val recentSweep = marks.lastOrNull { it.tag == Tag.LIQUIDITY_SWEEP_SELL || it.tag == Tag.LIQUIDITY_SWEEP_BUY }
+        if (recentSweep != null && lastIndex >= 2) {
+            val sweepIndex = candles.indexOfLast { it.time <= recentSweep.endTime }
+            if (sweepIndex >= 0 && lastIndex - sweepIndex <= 8) {
+                val afterSweep = candles.subList(sweepIndex + 1, candles.size)
+                val bearishCandle = afterSweep.indexOfLast { it.close < it.open }
+                val bullishCandle = afterSweep.indexOfLast { it.close > it.open }
+                if (recentSweep.tag == Tag.LIQUIDITY_SWEEP_SELL && bearishCandle >= 0) {
+                    val refBar = afterSweep[bearishCandle]
+                    if (latestBar.close > refBar.open)
+                        marks += m(Tag.CISD_BULLISH, refBar, latestBar, refBar.open, latestBar.close,
+                            latestBar.time, "CISD-style bullish close through last bearish candle open; heuristic")
+                }
+                if (recentSweep.tag == Tag.LIQUIDITY_SWEEP_BUY && bullishCandle >= 0) {
+                    val refBar = afterSweep[bullishCandle]
+                    if (latestBar.close < refBar.open)
+                        marks += m(Tag.CISD_BEARISH, refBar, latestBar, latestBar.close, refBar.open,
+                            latestBar.time, "CISD-style bearish close through last bullish candle open; heuristic")
+                }
             }
         }
 
