@@ -21,7 +21,7 @@ internal object SmartIctSuite {
         IRL, ERL, DRAW_ON_LIQUIDITY_HIGH, DRAW_ON_LIQUIDITY_LOW, INDUCEMENT_BULLISH, INDUCEMENT_BEARISH, CISD_BULLISH, CISD_BEARISH, CRT_HIGH, CRT_LOW, CRT_MIDPOINT, IPDA_RANGE_20, IPDA_RANGE_40, IPDA_RANGE_60,
         FVG_BULLISH, FVG_BEARISH, FVG_PARTIAL_FILL, FVG_FULL_FILL, FVG_INVALIDATED,
         IFVG_BULLISH, IFVG_BEARISH, BPR, VOLUME_IMBALANCE,
-        OPENING_GAP, DISPLACEMENT_BULLISH, DISPLACEMENT_BEARISH, CE_50,
+        OPENING_GAP, NDOG, NWOG, OPENING_RANGE_HIGH, OPENING_RANGE_LOW, OPENING_RANGE_MID, LIQUIDITY_VOID_BULLISH, LIQUIDITY_VOID_BEARISH, DISPLACEMENT_BULLISH, DISPLACEMENT_BEARISH, CE_50,
         ORDER_BLOCK_BULLISH, ORDER_BLOCK_BEARISH, BREAKER_BULLISH, BREAKER_BEARISH,
         MITIGATION_BLOCK, REJECTION_BLOCK, PROPULSION_BLOCK, VACUUM_BLOCK,
         PREMIUM, DISCOUNT, EQUILIBRIUM, OTE, OTE_BULLISH, OTE_BEARISH, FIB_62, FIB_705, FIB_79,
@@ -192,6 +192,55 @@ internal object SmartIctSuite {
             val a=gaps[i]; val b=gaps[j]; if (a.bullish==b.bullish) continue
             val lo=max(a.low,b.low); val hi=min(a.high,b.high)
             if (lo<hi) marks+=m(Tag.BPR,candles[min(a.start,b.start)],candles[max(a.end,b.end)],lo,hi,candles[max(a.end,b.end)].time,"Opposing FVG overlap")
+        }
+
+        // Observed daily/weekly opening gaps and opening-range levels. A gap is
+        // emitted only when both real candles exist; no weekend candle is synthesized.
+        val datedCandles = candles.map { it to Instant.ofEpochMilli(it.time).atZone(zone) }
+        for (i in 1 until datedCandles.size) {
+            val (prior, priorZoned) = datedCandles[i - 1]
+            val (current, currentZoned) = datedCandles[i]
+            val dayChanged = priorZoned.toLocalDate() != currentZoned.toLocalDate()
+            val weekChanged = priorZoned.get(WeekFields.ISO.weekBasedYear()) != currentZoned.get(WeekFields.ISO.weekBasedYear()) ||
+                priorZoned.get(WeekFields.ISO.weekOfWeekBasedYear()) != currentZoned.get(WeekFields.ISO.weekOfWeekBasedYear())
+            if (dayChanged && current.open != prior.close) {
+                marks += m(Tag.NDOG, prior, current, min(prior.close, current.open), max(prior.close, current.open),
+                    current.time, "Observed daily opening gap; absent if provider has no gap")
+            }
+            if (weekChanged && current.open != prior.close) {
+                marks += m(Tag.NWOG, prior, current, min(prior.close, current.open), max(prior.close, current.open),
+                    current.time, "Observed weekly opening gap; absent if provider has no gap")
+            }
+        }
+        // Opening range is the first supplied 30 minutes of the latest local date.
+        val todayBars = datedCandles.filter { it.second.toLocalDate() == datedCandles.last().second.toLocalDate() }
+            .map { it.first }
+        if (todayBars.isNotEmpty()) {
+            val start = todayBars.first().time
+            val openingBars = todayBars.filter { it.time - start <= 30L * 60_000L }
+            if (openingBars.isNotEmpty()) {
+                val orHigh = openingBars.maxOf { it.high }
+                val orLow = openingBars.minOf { it.low }
+                marks += m(Tag.OPENING_RANGE_HIGH, openingBars.first(), openingBars.last(), orHigh, orHigh,
+                    openingBars.last().time, "First 30 minutes of supplied local-day candles; provider coverage dependent")
+                marks += m(Tag.OPENING_RANGE_LOW, openingBars.first(), openingBars.last(), orLow, orLow,
+                    openingBars.last().time, "First 30 minutes of supplied local-day candles; provider coverage dependent")
+                marks += m(Tag.OPENING_RANGE_MID, openingBars.first(), openingBars.last(), (orHigh + orLow) / 2f,
+                    (orHigh + orLow) / 2f, openingBars.last().time, "Opening range midpoint")
+            }
+        }
+        // Liquidity void proxy: an unusually large directional candle body relative
+        // to ATR. Volume/order-flow data is not inferred from price alone.
+        for (i in 1 until candles.size) {
+            val bar = candles[i]
+            val range = (bar.high - bar.low).coerceAtLeast(0.0000001f)
+            val body = abs(bar.close - bar.open)
+            if (body >= atr[i].coerceAtLeast(0.0000001f) * cfg.displacementAtrMultiple.coerceAtLeast(0.1f) &&
+                body / range >= 0.8f) {
+                marks += m(if (bar.close >= bar.open) Tag.LIQUIDITY_VOID_BULLISH else Tag.LIQUIDITY_VOID_BEARISH,
+                    bar, bar, bar.low, bar.high, bar.time,
+                    "Large body/range liquidity-void proxy; not true order-book liquidity")
+            }
         }
 
         // Zone heuristics. Invalidation is explicit; none of these labels are guaranteed canonical signals.
