@@ -370,19 +370,20 @@ internal object SmartIctSuite {
 
         // Broader ICT checklist coverage: internal/external structure, AMD phases,
         // volume-imbalance proxy and the Unicorn (breaker + FVG overlap) model.
+        val recentModelCutoff = candles[max(0, candles.lastIndex - 30)].time
         val recentPivotHigh = highs.lastOrNull()?.let { candles[it] }
         val recentPivotLow = lows.lastOrNull()?.let { candles[it] }
         if (recentPivotHigh != null) {
-            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotHigh, last, recentPivotHigh.high,
+            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotHigh, latestBar, recentPivotHigh.high,
                 recentPivotHigh.high, last.time, "Latest confirmed swing high as external-structure reference")
         }
         if (recentPivotLow != null) {
-            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotLow, last, recentPivotLow.low,
+            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotLow, latestBar, recentPivotLow.low,
                 recentPivotLow.low, last.time, "Latest confirmed swing low as external-structure reference")
         }
         val internalStart = max(0, candles.lastIndex - 8)
         val internalBars = candles.subList(internalStart, candles.size)
-        marks += m(Tag.INTERNAL_STRUCTURE, internalBars.first(), last,
+        marks += m(Tag.INTERNAL_STRUCTURE, internalBars.first(), latestBar,
             internalBars.minOf { it.low }, internalBars.maxOf { it.high }, last.time,
             "Recent 9-candle internal dealing range proxy")
         // AMD/Power-of-Three are shown as candidates only when a measurable range,
@@ -412,15 +413,15 @@ internal object SmartIctSuite {
         // Unicorn model candidate: a breaker range overlaps an FVG in the same
         // recent region. This is a confluence marker, not a guaranteed entry.
         val recentFvgs = marks.filter { it.tag == Tag.FVG_BULLISH || it.tag == Tag.FVG_BEARISH }
-            .filter { it.endTime >= recentCutoff }
+            .filter { it.endTime >= recentModelCutoff }
         val recentBreakers = marks.filter { it.tag == Tag.BREAKER_BULLISH || it.tag == Tag.BREAKER_BEARISH }
-            .filter { it.endTime >= recentCutoff }
+            .filter { it.endTime >= recentModelCutoff }
         for (fvg in recentFvgs) for (breaker in recentBreakers) {
             val lo = max(fvg.low, breaker.low)
             val hi = min(fvg.high, breaker.high)
             if (lo < hi && abs(fvg.endTime - breaker.endTime) <= cfg.dealingRangeLookback.coerceAtLeast(5) * 60_000L) {
-                marks += m(Tag.UNICORN, candles.firstOrNull { it.time >= min(fvg.startTime, breaker.startTime) } ?: last,
-                    last, lo, hi, last.time, "Recent breaker/FVG overlap candidate; timeframe and displacement confirmation required")
+                marks += m(Tag.UNICORN, candles.firstOrNull { it.time >= min(fvg.startTime, breaker.startTime) } ?: latestBar,
+                    latestBar, lo, hi, last.time, "Recent breaker/FVG overlap candidate; timeframe and displacement confirmation required")
             }
         }
 
