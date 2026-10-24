@@ -1032,8 +1032,20 @@ class CandlestickChartView(context: Context) : View(context) {
         val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.FILL; alpha = 28 }
         val line = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; strokeWidth = 1.4f }
         val label = Paint(Paint.ANTI_ALIAS_FLAG).apply { textSize = 11f; textAlign = Paint.Align.LEFT }
-        val visibleEvents = result.events.filter {
-            it.kind in setOf(
+        // The suite renderer below owns the automatic context filter. This legacy
+        // renderer remains only as a sparse fallback for recent, price-relevant
+        // events; otherwise its historical zones duplicate the suite/structure
+        // layers and cover the chart (the oversized blocks seen in the test video).
+        val lastCandle = candles.last()
+        val recentCutoff = candles.getOrNull((candles.lastIndex - 20).coerceAtLeast(0))?.time
+            ?: lastCandle.time
+        val visibleBand = priceSpan * 0.12f
+        val zoneKinds = setOf(
+            SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
+            SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH
+        )
+        val visibleEvents = result.events.filter { event ->
+            val supported = event.kind in setOf(
                 SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
                 SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH,
                 SmartIctEngine.Kind.BOS_BULLISH, SmartIctEngine.Kind.BOS_BEARISH,
@@ -1041,9 +1053,15 @@ class CandlestickChartView(context: Context) : View(context) {
                 SmartIctEngine.Kind.EQH, SmartIctEngine.Kind.EQL,
                 SmartIctEngine.Kind.EQUILIBRIUM
             )
+            val nearPrice = lastCandle.close >= event.low - visibleBand &&
+                lastCandle.close <= event.high + visibleBand
+            val recent = event.endTime >= recentCutoff
+            val reasonableZone = event.kind !in zoneKinds ||
+                (event.high - event.low) <= priceSpan * 0.12f
+            supported && (recent || nearPrice) && reasonableZone
         }
-        // Keep the display bounded on long histories and avoid repainting invalidated zones.
-        for (event in visibleEvents.takeLast(120)) {
+        // Keep only a small number of newest relevant legacy events.
+        for (event in visibleEvents.takeLast(16)) {
             if (event.invalidated && event.kind in setOf(
                     SmartIctEngine.Kind.FVG_BULLISH, SmartIctEngine.Kind.FVG_BEARISH,
                     SmartIctEngine.Kind.ORDER_BLOCK_BULLISH, SmartIctEngine.Kind.ORDER_BLOCK_BEARISH
