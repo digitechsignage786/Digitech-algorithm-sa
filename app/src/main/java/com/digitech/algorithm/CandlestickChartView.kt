@@ -1235,11 +1235,14 @@ class CandlestickChartView(context: Context) : View(context) {
                 if (mark.tag !in displayTags || mark.endTime < visibleStart || mark.startTime > visibleEnd) {
                     false
                 } else if (mark.tag in zoneTags) {
-                    // Prevent higher-timeframe or malformed zones from filling most of
-                    // the viewport. The price-span guard applies before drawing/clamping,
-                    // so clipping cannot turn an oversized zone into a full-height block.
+                    // Zones are context overlays, not full-history backgrounds.
+                    // Only retain zones that ended in the recent candle window;
+                    // a still-relevant price zone must not stretch from old history
+                    // across the entire chart after a redraw.
                     val zoneHeight = abs(mark.high - mark.low)
-                    zoneHeight.isFinite() && zoneHeight > 0f && zoneHeight <= span * 0.12f
+                    val recentZone = mark.endTime >= recentCutoff
+                    zoneHeight.isFinite() && zoneHeight > 0f &&
+                        zoneHeight <= span * 0.12f && recentZone
                 } else {
                     true
                 }
@@ -1308,8 +1311,13 @@ class CandlestickChartView(context: Context) : View(context) {
                 bearish -> Color.rgb(235, 75, 95)
                 else -> Color.rgb(205, 175, 90)
             }
-            val x1 = xFor(event.startTime)
-            val x2 = xFor(event.endTime).coerceAtLeast(x1 + step)
+            val rawX1 = xFor(event.startTime)
+            val x2 = xFor(event.endTime).coerceAtLeast(rawX1 + step)
+            // Limit zone width to the most recent 20 candles even when the engine
+            // reports an old startTime. This prevents broad historical slabs.
+            val recentZoneLeft = (left + offsetX +
+                (candles.lastIndex - 20).coerceAtLeast(0) * step).coerceIn(left, right)
+            val x1 = if (event.tag in zoneTags) max(rawX1, recentZoneLeft) else rawX1
             val yLow = yFor(event.low)
             val yHigh = yFor(event.high)
             label.color = color
