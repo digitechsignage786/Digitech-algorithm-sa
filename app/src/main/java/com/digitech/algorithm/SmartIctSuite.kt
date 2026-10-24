@@ -319,6 +319,62 @@ internal object SmartIctSuite {
             }
         }
 
+        // Broader ICT checklist coverage: internal/external structure, AMD phases,
+        // volume-imbalance proxy and the Unicorn (breaker + FVG overlap) model.
+        val recentPivotHigh = highs.lastOrNull()?.let { candles[it] }
+        val recentPivotLow = lows.lastOrNull()?.let { candles[it] }
+        if (recentPivotHigh != null) {
+            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotHigh, last, recentPivotHigh.high,
+                recentPivotHigh.high, last.time, "Latest confirmed swing high as external-structure reference")
+        }
+        if (recentPivotLow != null) {
+            marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotLow, last, recentPivotLow.low,
+                recentPivotLow.low, last.time, "Latest confirmed swing low as external-structure reference")
+        }
+        val internalStart = max(0, candles.lastIndex - 8)
+        val internalBars = candles.subList(internalStart, candles.size)
+        marks += m(Tag.INTERNAL_STRUCTURE, internalBars.first(), last,
+            internalBars.minOf { it.low }, internalBars.maxOf { it.high }, last.time,
+            "Recent 9-candle internal dealing range proxy")
+        // AMD/Power-of-Three are shown as candidates only when a measurable range,
+        // raid and directional close exist; no fixed narrative is assumed.
+        if (recentBars.size >= 8) {
+            val base = recentBars.take(5)
+            val baseHigh = base.maxOf { it.high }
+            val baseLow = base.minOf { it.low }
+            val raid = recentBars.drop(5).firstOrNull {
+                (it.high > baseHigh && it.close < baseHigh) ||
+                    (it.low < baseLow && it.close > baseLow)
+            }
+            if (baseHigh > baseLow) {
+                marks += m(Tag.AMD_ACCUMULATION, base.first(), base.last(), baseLow, baseHigh,
+                    base.last().time, "Compression/range accumulation candidate")
+                if (raid != null) {
+                    marks += m(Tag.AMD_MANIPULATION, base.last(), raid, min(raid.low, baseLow),
+                        max(raid.high, baseHigh), raid.time, "Range raid/reclaim manipulation candidate")
+                    val directionAfterRaid = recentBars.dropWhile { it.time <= raid.time }
+                    val follow = directionAfterRaid.lastOrNull()
+                    if (follow != null && (follow.close > baseHigh || follow.close < baseLow))
+                        marks += m(Tag.AMD_DISTRIBUTION, raid, follow, min(baseLow, follow.low),
+                            max(baseHigh, follow.high), follow.time, "Close outside accumulation range after raid")
+                }
+            }
+        }
+        // Unicorn model candidate: a breaker range overlaps an FVG in the same
+        // recent region. This is a confluence marker, not a guaranteed entry.
+        val recentFvgs = marks.filter { it.tag == Tag.FVG_BULLISH || it.tag == Tag.FVG_BEARISH }
+            .filter { it.endTime >= recentCutoff }
+        val recentBreakers = marks.filter { it.tag == Tag.BREAKER_BULLISH || it.tag == Tag.BREAKER_BEARISH }
+            .filter { it.endTime >= recentCutoff }
+        for (fvg in recentFvgs) for (breaker in recentBreakers) {
+            val lo = max(fvg.low, breaker.low)
+            val hi = min(fvg.high, breaker.high)
+            if (lo < hi && abs(fvg.endTime - breaker.endTime) <= cfg.dealingRangeLookback.coerceAtLeast(5) * 60_000L) {
+                marks += m(Tag.UNICORN, candles.firstOrNull { it.time >= min(fvg.startTime, breaker.startTime) } ?: last,
+                    last, lo, hi, last.time, "Recent breaker/FVG overlap candidate; timeframe and displacement confirmation required")
+            }
+        }
+
         addRangeMarks(candles,cfg,marks)
         addCalendarSessionMarks(candles,zone,marks)
         addSmtMarks(candles,input.relatedMarkets,marks)
