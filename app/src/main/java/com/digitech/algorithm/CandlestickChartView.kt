@@ -1223,9 +1223,21 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.OPENING_GAP, SmartIctSuite.Tag.DISPLACEMENT_BULLISH,
             SmartIctSuite.Tag.DISPLACEMENT_BEARISH,
             SmartIctSuite.Tag.FVG_PARTIAL_FILL, SmartIctSuite.Tag.FVG_FULL_FILL,
-            SmartIctSuite.Tag.FVG_INVALIDATED, SmartIctSuite.Tag.SESSION_HIGH, SmartIctSuite.Tag.SESSION_LOW
+            SmartIctSuite.Tag.FVG_INVALIDATED, SmartIctSuite.Tag.SESSION_HIGH, SmartIctSuite.Tag.SESSION_LOW,
+            SmartIctSuite.Tag.INTERNAL_STRUCTURE, SmartIctSuite.Tag.EXTERNAL_STRUCTURE,
+            SmartIctSuite.Tag.PROTECTED_HIGH, SmartIctSuite.Tag.PROTECTED_LOW,
+            SmartIctSuite.Tag.IRL, SmartIctSuite.Tag.ERL, SmartIctSuite.Tag.VOLUME_IMBALANCE,
+            SmartIctSuite.Tag.FIB_62, SmartIctSuite.Tag.FIB_705, SmartIctSuite.Tag.FIB_79,
+            SmartIctSuite.Tag.RANGE_EXPANSION, SmartIctSuite.Tag.PRICE_DELIVERY_RANGE,
+            SmartIctSuite.Tag.NY_PM, SmartIctSuite.Tag.LONDON_CLOSE,
+            SmartIctSuite.Tag.UNICORN, SmartIctSuite.Tag.AMD_ACCUMULATION,
+            SmartIctSuite.Tag.AMD_MANIPULATION, SmartIctSuite.Tag.AMD_DISTRIBUTION,
+            SmartIctSuite.Tag.HTF_BIAS_BULLISH, SmartIctSuite.Tag.HTF_BIAS_BEARISH
         )
-        val displayTags = zoneTags + levelTags
+        // Every SmartIctSuite tag is eligible for automatic rendering. The relevance
+        // filters below still limit output to recent/price-relevant marks and cap
+        // visible overlays, preventing the chart from being flooded with history.
+        val displayTags = SmartIctSuite.Tag.values().toSet()
         // Automatic ICT visibility: no manual per-concept switches. Keep active,
         // recent, or price-relevant concepts; hide resolved stale zones so the
         // chart stays readable. This only filters the additive ICT overlay.
