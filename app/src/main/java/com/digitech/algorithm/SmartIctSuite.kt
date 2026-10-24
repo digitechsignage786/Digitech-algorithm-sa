@@ -375,16 +375,16 @@ internal object SmartIctSuite {
         val recentPivotLow = lows.lastOrNull()?.let { candles[it] }
         if (recentPivotHigh != null) {
             marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotHigh, latestBar, recentPivotHigh.high,
-                recentPivotHigh.high, last.time, "Latest confirmed swing high as external-structure reference")
+                recentPivotHigh.high, latestBar.time, "Latest confirmed swing high as external-structure reference")
         }
         if (recentPivotLow != null) {
             marks += m(Tag.EXTERNAL_STRUCTURE, recentPivotLow, latestBar, recentPivotLow.low,
-                recentPivotLow.low, last.time, "Latest confirmed swing low as external-structure reference")
+                recentPivotLow.low, latestBar.time, "Latest confirmed swing low as external-structure reference")
         }
         val internalStart = max(0, candles.lastIndex - 8)
         val internalBars = candles.subList(internalStart, candles.size)
         marks += m(Tag.INTERNAL_STRUCTURE, internalBars.first(), latestBar,
-            internalBars.minOf { it.low }, internalBars.maxOf { it.high }, last.time,
+            internalBars.minOf { it.low }, internalBars.maxOf { it.high }, latestBar.time,
             "Recent 9-candle internal dealing range proxy")
         // AMD/Power-of-Three are shown as candidates only when a measurable range,
         // raid and directional close exist; no fixed narrative is assumed.
@@ -421,7 +421,7 @@ internal object SmartIctSuite {
             val hi = min(fvg.high, breaker.high)
             if (lo < hi && abs(fvg.endTime - breaker.endTime) <= cfg.dealingRangeLookback.coerceAtLeast(5) * 60_000L) {
                 marks += m(Tag.UNICORN, candles.firstOrNull { it.time >= min(fvg.startTime, breaker.startTime) } ?: latestBar,
-                    latestBar, lo, hi, last.time, "Recent breaker/FVG overlap candidate; timeframe and displacement confirmation required")
+                    latestBar, lo, hi, latestBar.time, "Recent breaker/FVG overlap candidate; timeframe and displacement confirmation required")
             }
         }
 
