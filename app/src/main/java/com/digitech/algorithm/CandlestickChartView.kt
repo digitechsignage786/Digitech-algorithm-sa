@@ -1231,7 +1231,19 @@ class CandlestickChartView(context: Context) : View(context) {
         val visiblePriceBand = span * 0.22f
         val levelLikeTags = levelTags
         val visible = result.marks
-            .filter { it.tag in displayTags && it.endTime >= visibleStart && it.startTime <= visibleEnd }
+            .filter { mark ->
+                if (mark.tag !in displayTags || mark.endTime < visibleStart || mark.startTime > visibleEnd) {
+                    false
+                } else if (mark.tag in zoneTags) {
+                    // Prevent higher-timeframe or malformed zones from filling most of
+                    // the viewport. The price-span guard applies before drawing/clamping,
+                    // so clipping cannot turn an oversized zone into a full-height block.
+                    val zoneHeight = abs(mark.high - mark.low)
+                    zoneHeight.isFinite() && zoneHeight > 0f && zoneHeight <= span * 0.12f
+                } else {
+                    true
+                }
+            }
             .groupBy { it.tag }
             .values
             .mapNotNull { events ->
