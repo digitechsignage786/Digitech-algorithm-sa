@@ -418,6 +418,8 @@ class CandlestickChartView(context: Context) : View(context) {
     ) {
 
         super.onDraw(canvas)
+        // Reset once per frame so all ICT layers share a fresh collision map.
+        ictOccupiedLabelBoxes.clear()
 
         updateLiveFollowOffset()
         drawGrid(canvas)
@@ -1305,7 +1307,8 @@ class CandlestickChartView(context: Context) : View(context) {
                     }
                 }.thenByDescending { it.endTime }
             )
-            .take(18)
+            // Fewer simultaneous annotations improve readability on phone screens.
+            .take(8)
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
@@ -1350,7 +1353,10 @@ class CandlestickChartView(context: Context) : View(context) {
                     canvas.drawRect(rect, boxLine)
                 }
                 val tag = event.tag.name.replace("_", " ")
-                canvas.drawText(tag, rect.left + 2f, (rect.top + 11f).coerceIn(top + 10f, bottom), label)
+                drawIctLabelCollisionSafe(
+                    canvas, tag, (rect.left + 2f + label.measureText(tag) / 2f).coerceIn(left + 4f, right - 4f),
+                    (rect.top + 11f).coerceIn(top + 10f, bottom), label, preferAbove = true
+                )
             } else {
                 line.color = color
                 line.pathEffect = if (event.tag == SmartIctSuite.Tag.PDH ||
@@ -1360,7 +1366,10 @@ class CandlestickChartView(context: Context) : View(context) {
                 canvas.drawLine(left, y, right, y, line)
                 line.pathEffect = null
                 val tag = event.tag.name.replace("_", " ")
-                canvas.drawText(tag, (right - 112f).coerceAtLeast(left), (y - 3f).coerceIn(top + 10f, bottom), label)
+                drawIctLabelCollisionSafe(
+                    canvas, tag, ((right - 112f).coerceAtLeast(left) + label.measureText(tag) / 2f).coerceIn(left + 4f, right - 4f),
+                    (y - 3f).coerceIn(top + 10f, bottom), label, preferAbove = true
+                )
             }
         }
     }
