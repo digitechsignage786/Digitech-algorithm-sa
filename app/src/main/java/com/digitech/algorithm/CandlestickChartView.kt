@@ -1014,7 +1014,16 @@ class CandlestickChartView(context: Context) : View(context) {
     // remain unchanged; this layer draws only deterministic event results.
     private fun drawSmartIctEngineOverlays(canvas: Canvas) {
         if (candles.size < 5) return
-        val result = SmartIctEngine.analyze(candles.toList())
+        val last = candles.last()
+        val fingerprint = candles.size.toString() + ":" + candles.first().time +
+            ":" + last.time + ":" + last.open + ":" + last.high + ":" +
+            last.low + ":" + last.close
+        var result = smartIctEngineCache
+        if (result == null || fingerprint != smartIctEngineCacheKey) {
+            result = SmartIctEngine.analyze(candles.toList())
+            smartIctEngineCacheKey = fingerprint
+            smartIctEngineCache = result
+        }
         if (result.events.isEmpty()) return
         val range = visibleRange()
         val highest = range.first
@@ -1112,8 +1121,11 @@ class CandlestickChartView(context: Context) : View(context) {
         }
     }
 
-    // Additional Smart ICT marks are cached by candle fingerprint so a redraw does not
-    // rerun the full analysis on every animation frame. This renderer is additive only.
+    // Cache both Smart ICT analyzers so animation-only redraws do not rerun
+    // full candle-history analysis. Cache invalidates when real candle data changes.
+    // This is a rendering-performance guard; it does not alter chart interaction.
+    private var smartIctEngineCacheKey: String = ""
+    private var smartIctEngineCache: SmartIctEngine.Result? = null
     private var smartIctSuiteCacheKey: String = ""
     private var smartIctSuiteCache: SmartIctSuite.Result? = null
 
