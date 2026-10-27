@@ -95,4 +95,28 @@ class SmartIctSuiteTest {
         assertTrue(result.warnings.any { it.contains("Spread is unavailable") })
         assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
     }
+
+    @Test fun emittedMarksUseRealCandleTimesAndValidPriceBounds() {
+        val input = SmartIctSuite.Input(bars())
+        val result = SmartIctSuite.analyze(input)
+        val validTimes = input.candles.map { it.time }.toSet()
+        assertTrue("Expected real-OHLC marks", result.marks.isNotEmpty())
+        result.marks.forEach { mark ->
+            assertTrue("Start time must be a supplied candle time: ${mark.tag}", validTimes.contains(mark.startTime))
+            assertTrue("End time must be a supplied candle time: ${mark.tag}", validTimes.contains(mark.endTime))
+            assertTrue("Mark confirmation cannot precede its start: ${mark.tag}", mark.confirmedAt >= mark.startTime)
+            assertTrue("Mark prices must be finite: ${mark.tag}", mark.low.isFinite() && mark.high.isFinite())
+            assertTrue("Mark price bounds must be ordered: ${mark.tag}", mark.low <= mark.high)
+        }
+    }
+
+    @Test fun missingExternalInputsRemainExplicitlyPending() {
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
+        assertTrue(result.warnings.any { it.contains("SMT is awaiting synchronized related-market OHLC") })
+        assertTrue(result.warnings.any { it.contains("MTF bias/confluence is awaiting actual timeframe candles") })
+        assertTrue(result.warnings.any { it.contains("News calendar coverage is not confirmed") })
+        assertTrue(result.marks.none { it.tag == SmartIctSuite.Tag.SMT_BULLISH || it.tag == SmartIctSuite.Tag.SMT_BEARISH })
+        assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
+    }
+
 }
