@@ -8,6 +8,7 @@ on:
       - ict-bos-log-test-package-v1
       - smart-ict-complete-integration-v1
       - smart-ict-data-validation-v1
+      - anr-ict-render-cache-test
 
 jobs:
   build:
