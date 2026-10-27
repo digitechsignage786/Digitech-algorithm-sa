@@ -1309,8 +1309,7 @@ super.onCreate(savedInstanceState)
                 val low = item.optDouble("l", Double.NaN)
                 val close = item.optDouble("c", Double.NaN)
 
-                if (time <= 0L || !open.isFinite() || !high.isFinite() ||
-                    !low.isFinite() || !close.isFinite()) continue
+                if (time <= 0L || !isValidOhlc(open, high, low, close)) continue
 
                 result.add(
                     Candle(
@@ -1388,8 +1387,7 @@ super.onCreate(savedInstanceState)
                 val high = item.optDouble("h", Double.NaN)
                 val low = item.optDouble("l", Double.NaN)
                 val close = item.optDouble("c", Double.NaN)
-                if (time <= 0L || !open.isFinite() || !high.isFinite() ||
-                    !low.isFinite() || !close.isFinite()) continue
+                if (time <= 0L || !isValidOhlc(open, high, low, close)) continue
 
                 result.add(
                     Candle(
@@ -1493,12 +1491,7 @@ super.onCreate(savedInstanceState)
                 val low = item.optDouble("low", Double.NaN)
                 val close = item.optDouble("close", Double.NaN)
 
-                if (
-                    !open.isFinite() ||
-                    !high.isFinite() ||
-                    !low.isFinite() ||
-                    !close.isFinite()
-                ) {
+                if (!isValidOhlc(open, high, low, close)) {
                     continue
                 }
 
@@ -1837,7 +1830,7 @@ super.onCreate(savedInstanceState)
                 is String -> raw.toDoubleOrNull() ?: Double.NaN
                 else -> Double.NaN
             }
-            if (!price.isFinite()) return
+            if (!price.isFinite() || price <= 0.0) return
 
             lastLivePrice = price.toFloat()
 
@@ -2082,6 +2075,21 @@ super.onCreate(savedInstanceState)
             "1D" -> "1day"
             else -> "5min"
         }
+    }
+
+    private fun isValidOhlc(
+        open: Double,
+        high: Double,
+        low: Double,
+        close: Double
+    ): Boolean {
+        if (!open.isFinite() || !high.isFinite() ||
+            !low.isFinite() || !close.isFinite()) return false
+        if (open <= 0.0 || high <= 0.0 || low <= 0.0 || close <= 0.0) return false
+        // Reject malformed provider bars; never repair them or fabricate OHLC.
+        return high >= maxOf(open, close) &&
+            low <= minOf(open, close) &&
+            high >= low
     }
 
     private fun parseTime(value: String): Long {
