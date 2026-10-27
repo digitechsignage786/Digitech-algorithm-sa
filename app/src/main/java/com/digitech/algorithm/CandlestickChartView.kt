@@ -1191,6 +1191,8 @@ class CandlestickChartView(context: Context) : View(context) {
             SmartIctSuite.Tag.BREAKER_BEARISH, SmartIctSuite.Tag.MITIGATION_BLOCK,
             SmartIctSuite.Tag.REJECTION_BLOCK, SmartIctSuite.Tag.PROPULSION_BLOCK,
             SmartIctSuite.Tag.VACUUM_BLOCK, SmartIctSuite.Tag.OTE,
+            SmartIctSuite.Tag.NDOG, SmartIctSuite.Tag.NWOG,
+            SmartIctSuite.Tag.LIQUIDITY_VOID_BULLISH, SmartIctSuite.Tag.LIQUIDITY_VOID_BEARISH,
             SmartIctSuite.Tag.IPDA_RANGE_20, SmartIctSuite.Tag.IPDA_RANGE_40, SmartIctSuite.Tag.IPDA_RANGE_60,
             SmartIctSuite.Tag.ASIA_RANGE, SmartIctSuite.Tag.LONDON_KILL_ZONE,
             SmartIctSuite.Tag.NY_AM_KILL_ZONE, SmartIctSuite.Tag.PREMIUM,
