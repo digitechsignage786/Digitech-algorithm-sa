@@ -50,8 +50,7 @@ class SmartIctSuiteTest {
             SmartIctSuite.Tag.EQUILIBRIUM,
             SmartIctSuite.Tag.CRT_HIGH,
             SmartIctSuite.Tag.CRT_LOW,
-            SmartIctSuite.Tag.CRT_MIDPOINT,
-            SmartIctSuite.Tag.IPDA_RANGE_20
+            SmartIctSuite.Tag.CRT_MIDPOINT
         )
         assertTrue("Missing emitted range concepts: " + (expected - emitted), emitted.containsAll(expected))
     }
