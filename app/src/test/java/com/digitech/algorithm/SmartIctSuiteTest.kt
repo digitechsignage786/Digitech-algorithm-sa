@@ -36,6 +36,26 @@ class SmartIctSuiteTest {
         assertTrue("Observed full mitigation should be marked", r.marks.any { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL })
     }
 
+    @Test fun rangeAndCandleRangeTheoryConceptsAreEmittedFromRealBars() {
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
+        val emitted = result.marks.map { it.tag }.toSet()
+        val expected = setOf(
+            SmartIctSuite.Tag.OTE,
+            SmartIctSuite.Tag.OTE_BULLISH,
+            SmartIctSuite.Tag.OTE_BEARISH,
+            SmartIctSuite.Tag.FIB_62,
+            SmartIctSuite.Tag.FIB_705,
+            SmartIctSuite.Tag.FIB_79,
+            SmartIctSuite.Tag.PRICE_DELIVERY_RANGE,
+            SmartIctSuite.Tag.EQUILIBRIUM,
+            SmartIctSuite.Tag.CRT_HIGH,
+            SmartIctSuite.Tag.CRT_LOW,
+            SmartIctSuite.Tag.CRT_MIDPOINT,
+            SmartIctSuite.Tag.IPDA_RANGE_20
+        )
+        assertTrue("Missing emitted range concepts: " + (expected - emitted), emitted.containsAll(expected))
+    }
+
     @Test fun synchronizedInputsAffectSmtAndMtfCapability() {
         val b = bars()
         val result = SmartIctSuite.analyze(SmartIctSuite.Input(
