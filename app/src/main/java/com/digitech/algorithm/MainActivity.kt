@@ -1387,8 +1387,7 @@ super.onCreate(savedInstanceState)
                 val high = item.optDouble("h", Double.NaN)
                 val low = item.optDouble("l", Double.NaN)
                 val close = item.optDouble("c", Double.NaN)
-                if (time <= 0L || !open.isFinite() || !high.isFinite() ||
-                    !low.isFinite() || !close.isFinite()) continue
+                if (time <= 0L || !isValidOhlc(open, high, low, close)) continue
 
                 result.add(
                     Candle(
