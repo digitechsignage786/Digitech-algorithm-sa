@@ -31,6 +31,9 @@ class SmartIctSuiteTest {
         assertTrue(r.marks.any { it.tag == SmartIctSuite.Tag.PREMIUM })
         assertTrue(r.marks.any { it.tag == SmartIctSuite.Tag.DISCOUNT })
         assertTrue(r.marks.any { it.tag == SmartIctSuite.Tag.FVG_BULLISH })
+        assertTrue("Bullish FVG midpoint should be emitted", r.marks.any { it.tag == SmartIctSuite.Tag.CE_50 })
+        assertTrue("Observed partial mitigation should be marked", r.marks.any { it.tag == SmartIctSuite.Tag.FVG_PARTIAL_FILL })
+        assertTrue("Observed full mitigation should be marked", r.marks.any { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL })
     }
 
     @Test fun synchronizedInputsAffectSmtAndMtfCapability() {
