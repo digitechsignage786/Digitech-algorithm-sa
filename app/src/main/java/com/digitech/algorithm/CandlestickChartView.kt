@@ -1308,7 +1308,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 }.thenByDescending { it.endTime }
             )
             // Fewer simultaneous annotations improve readability on phone screens.
-            .take(8)
+            .take(4)
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
