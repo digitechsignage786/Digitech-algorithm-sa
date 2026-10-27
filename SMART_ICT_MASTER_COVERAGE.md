@@ -30,3 +30,28 @@ This branch is a test integration, separate from `main`. The analyzer only exami
 ## Interpretation
 
 The checked rule-engine items mean a deterministic heuristic/rule path and a mark type exist; they do **not** mean each ICT concept is a unique universally agreed textbook algorithm, that all required provider inputs are currently wired into the app, or that a setup has trading edge. Treat these marks as analytical candidates until verified against market history and on-device rendering. The live-order path is disabled.
+
+
+## Requested master ICT checklist (catalog scope)
+
+The app's `SmartIctSuite.Tag` taxonomy is the machine-readable checklist. The following families must remain covered during implementation and follow-up verification:
+
+- [ ] Market structure: swing highs/lows, HH/HL/LH/LL, short/intermediate/long-term highs/lows, internal/external structure, BOS, CHoCH, MSS, protected levels, inducement, CISD and displacement.
+- [ ] Liquidity: BSL/SSL, EQH/EQL, relative equal highs/lows, sweeps, IRL/ERL, draw-on-liquidity, liquidity void, Turtle Soup and Judas Swing.
+- [ ] Imbalance: bullish/bearish FVG, partial/full fill, invalidation, IFVG, BPR, CE 50%, volume imbalance, opening gap, NDOG/NWOG.
+- [ ] Blocks/zones: bullish/bearish order blocks and breakers, mitigation, rejection, propulsion and vacuum blocks.
+- [ ] Range/Fibonacci: dealing range, premium/discount/equilibrium, OTE, 62/70.5/79 references, price-delivery range, range expansion and IPDA 20/40/60 ranges.
+- [ ] Time/session: Asia range, London/NY kill zones, NY PM, London close, session open/high/low, opening range, macro windows and midnight/daily/weekly opens.
+- [ ] Reference levels: PDH/PDL, PWH/PWL and session highs/lows.
+- [ ] Bias/MTF: daily/weekly/monthly bias, HTF bias, MTF confluence/conflict, synchronized SMT comparison.
+- [ ] Models: Silver Bullet, ICT 2022-style setup, Unicorn, Power of Three, AMD, MMXM, FVG/OB, breaker/FVG and OTE entry models.
+- [ ] Trade planning: buy/sell setup, entry, stop loss, TP1/TP2/TP3, risk/reward, NO_TRADE and invalidation.
+- [ ] Safety/data gates: news, spread, stale/missing data, insufficient history, session state and conflicting-signal warnings.
+
+### Status semantics
+
+- A tag existing in the enum is **catalogued**, not proof of working detection.
+- A heuristic mark is a **candidate**, not a guaranteed or canonical ICT interpretation.
+- Provider-dependent concepts stay pending until real inputs are connected and verified; never substitute fabricated candles, fake news, assumed spread, or unsynchronized markets.
+- Chart visibility must be context-sensitive; the full taxonomy should not mean every overlay is drawn at once.
+- Verification is still required on-device for drawing alignment, pan/zoom, symbol/timeframe changes, performance and the live candle/countdown baseline.
