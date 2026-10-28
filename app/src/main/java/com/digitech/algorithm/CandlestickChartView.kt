@@ -2190,9 +2190,14 @@ class CandlestickChartView(context: Context) : View(context) {
             }
         }
 
-        bestRect?.let {
-            ictOccupiedLabelBoxes += IctLabelBox(RectF(it))
-            canvas.drawText(text, bestX, bestY, paint)
+        // In a crowded chart, prefer omitting a lower-priority label over
+        // drawing it on top of another ICT label. The underlying level/zone
+        // remains unchanged; only the text annotation is suppressed.
+        if (bestOverlap == 0) {
+            bestRect?.let {
+                ictOccupiedLabelBoxes += IctLabelBox(RectF(it))
+                canvas.drawText(text, bestX, bestY, paint)
+            }
         }
     }
 
