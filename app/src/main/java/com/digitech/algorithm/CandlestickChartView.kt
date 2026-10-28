@@ -2090,19 +2090,18 @@ class CandlestickChartView(context: Context) : View(context) {
         // dense ICT area that could still leave labels visually touching.
         // Now every ICT label gets a larger deterministic candidate grid and
         // an explicit minimum gap around every already-placed label.
+        // Prefer compact, predictable lanes first. Large 28px jumps made
+        // otherwise readable labels spread across the chart and could collide
+        // with unrelated candles/levels. Only the text anchor is adjusted.
         val verticalOffsets = if (preferAbove) {
-            floatArrayOf(
-                0f, -28f, -56f, -84f, -112f, -140f, -168f, -196f, -224f,
-                28f, 56f, 84f, 112f, 140f, 168f, 196f, 224f
-            )
+            floatArrayOf(0f, -18f, 18f, -36f, 36f, -54f, 54f, -72f, 72f,
+                -90f, 90f, -108f, 108f, -126f, 126f, -144f, 144f)
         } else {
-            floatArrayOf(
-                0f, 28f, 56f, 84f, 112f, 140f, 168f, 196f, 224f,
-                -28f, -56f, -84f, -112f, -140f, -168f, -196f, -224f
-            )
+            floatArrayOf(0f, 18f, -18f, 36f, -36f, 54f, -54f, 72f, -72f,
+                90f, -90f, 108f, -108f, 126f, -126f, 144f, -144f)
         }
         val horizontalOffsets = floatArrayOf(
-            0f, -32f, 32f, -64f, 64f, -96f, 96f, -128f, 128f
+            0f, -24f, 24f, -48f, 48f, -72f, 72f, -96f, 96f, -120f, 120f
         )
 
         fun makeRect(x: Float, baselineY: Float): RectF {
