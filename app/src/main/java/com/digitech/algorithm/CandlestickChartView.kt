@@ -875,9 +875,8 @@ class CandlestickChartView(context: Context) : View(context) {
     }
 
     private fun drawIctStructureOverlays(canvas: Canvas) {
-        // One shared registry per frame; this allows all ICT labels to avoid
-        // each other instead of resolving only within their own layer.
-        ictOccupiedLabelBoxes.clear()
+        // Reuse the frame-wide registry initialized in onDraw so structure,
+        // engine, and suite labels avoid collisions across all ICT layers.
         if (!ictMtfEnabled || candles.size < 5) return
 
         val range = visibleRange()
