@@ -1013,13 +1013,17 @@ class CandlestickChartView(context: Context) : View(context) {
     // remain unchanged; this layer draws only deterministic event results.
     private fun drawSmartIctEngineOverlays(canvas: Canvas) {
         if (candles.size < 5) return
-        val last = candles.last()
-        val fingerprint = candles.size.toString() + ":" + candles.first().time +
-            ":" + last.time + ":" + last.open + ":" + last.high + ":" +
-            last.low + ":" + last.close
+        // Keep the full candle history on the chart, but bound the expensive
+        // Smart ICT scan to recent real candles. The suite contains nested gap
+        // scans; processing thousands of bars on the UI thread can trigger ANRs.
+        // Recompute at candle boundaries, not on every live tick of the same bar.
+        val analysisCandles = candles.takeLast(SMART_ICT_ANALYSIS_BAR_LIMIT)
+        val last = analysisCandles.last()
+        val fingerprint = analysisCandles.size.toString() + ":" + analysisCandles.first().time +
+            ":" + last.time
         var result = smartIctEngineCache
         if (result == null || fingerprint != smartIctEngineCacheKey) {
-            result = SmartIctEngine.analyze(candles.toList())
+            result = SmartIctEngine.analyze(analysisCandles)
             smartIctEngineCacheKey = fingerprint
             smartIctEngineCache = result
         }
@@ -1120,6 +1124,11 @@ class CandlestickChartView(context: Context) : View(context) {
         }
     }
 
+    private companion object {
+        // Bounded to prevent quadratic FVG/BPR scans from blocking Android's UI thread.
+        private const val SMART_ICT_ANALYSIS_BAR_LIMIT = 600
+    }
+
     // Cache both Smart ICT analyzers so animation-only redraws do not rerun
     // full candle-history analysis. Cache invalidates when real candle data changes.
     // This is a rendering-performance guard; it does not alter chart interaction.
@@ -1130,13 +1139,16 @@ class CandlestickChartView(context: Context) : View(context) {
 
     private fun drawSmartIctSuiteOverlays(canvas: Canvas) {
         if (candles.size < 5) return
-        val last = candles.last()
+        // ICT analysis must not run over the entire loaded history on the UI
+        // thread, nor rerun for every price tick inside the same candle.
+        // Chart candles, price updates and existing interaction remain untouched.
+        val analysisCandles = candles.takeLast(SMART_ICT_ANALYSIS_BAR_LIMIT)
+        val last = analysisCandles.last()
         val nowMillis = System.currentTimeMillis()
         val feedState = if (liveTickTimeMillis > 0L && nowMillis - liveTickTimeMillis <= 120_000L)
             SmartIctSuite.FeedState.LIVE else SmartIctSuite.FeedState.STALE
-        val fingerprint = candles.size.toString() + ":" + candles.first().time + ":" +
-            last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close +
-            ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + feedState.name
+        val fingerprint = analysisCandles.size.toString() + ":" + analysisCandles.first().time + ":" +
+            last.time + ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + feedState.name
         var result = smartIctSuiteCache
         if (result == null || fingerprint != smartIctSuiteCacheKey) {
             val frames = buildSmartIctTimeframeContext()
@@ -1147,7 +1159,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 latestFeedTimeMillis = liveTickTimeMillis
             )
             result = SmartIctSuite.analyze(SmartIctSuite.Input(
-                candles = candles.toList(),
+                candles = analysisCandles,
                 symbol = liveSymbol,
                 timeframes = frames,
                 config = config
