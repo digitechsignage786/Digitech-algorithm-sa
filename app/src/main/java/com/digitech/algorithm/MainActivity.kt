@@ -768,30 +768,70 @@ super.onCreate(savedInstanceState)
     }
 
     private fun showSignals() {
+        val bars = synchronized(historicalCandles) { historicalCandles.toList().takeLast(600) }
+        if (bars.size < 5) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("ICT Signals")
+                .setMessage("Not enough real historical OHLC candles yet. No demo candles are used.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        val result = SmartIctSuite.analyze(
+            SmartIctSuite.Input(candles = bars, symbol = selectedSymbol)
+        )
+        val latest = result.signals.lastOrNull()
+        val signalText = if (latest == null) {
+            "SETUP: NO CONFIRMED SIGNAL"
+        } else {
+            "SETUP: ${if (latest.bullish) "BUY" else "SELL"} (ANALYTICAL ONLY)\\n" +
+                "Entry: ${latest.entry}\\nStop Loss: ${latest.stopLoss}\\n" +
+                "TP1: ${latest.takeProfit1}\\nTP2: ${latest.takeProfit2}\\n" +
+                "TP3: ${latest.takeProfit3}\\nRisk: ${latest.riskPercent}%\\n" +
+                "R:R to TP2: ${latest.riskReward2}\\n" +
+                "Execution filters: ${if (latest.tradeFiltersPassed) "PASSED" else "BLOCKED"}"
+        }
+        val recentMarks = result.marks.takeLast(12).joinToString("\\n") {
+            it.tag.name.replace("_", " ") + if (it.invalidated) " (INVALIDATED)" else ""
+        }.ifBlank { "No confirmed ICT marks" }
+        val warnings = result.warnings.joinToString("\\n") { "• $it" }
         android.app.AlertDialog.Builder(this)
-            .setTitle("ICT Signals")
+            .setTitle("ICT Analysis — $selectedSymbol")
             .setMessage(
-                "ICT Auto Analysis\n\n" +
-                        "Market Structure\n" +
-                        "Liquidity Sweep\n" +
-                        "BOS / MSS / CHoCH\n" +
-                        "FVG\n" +
-                        "Order Block\n" +
-                        "Premium / Discount\n" +
-                        "Entry / SL / TP\n\n" +
-                        "Waiting for sufficient live OHLC data."
+                "Timeframe: $selectedTimeframe\\nReal OHLC bars: ${bars.size}\\n\\n" +
+                    "$signalText\\n\\nRECENT ICT MARKS\\n$recentMarks\\n\\nWARNINGS\\n$warnings\\n\\n" +
+                    "No order is sent. MT5/real-money execution remains disabled."
             )
             .setPositiveButton("OK", null)
             .show()
     }
 
     private fun showBacktest() {
+        val bars = synchronized(historicalCandles) { historicalCandles.toList() }
+        if (bars.size < 8) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("ICT Backtest")
+                .setMessage("NOT ENOUGH REAL OHLC DATA. Minimum 8 candles required.")
+                .setPositiveButton("CLOSE", null)
+                .show()
+            return
+        }
+        val stats = SmartIctSuite.backtest(
+            SmartIctSuite.Input(candles = bars, symbol = selectedSymbol),
+            startIndex = 60,
+            maxBars = 200
+        )
         android.app.AlertDialog.Builder(this)
-            .setTitle("ICT Backtest")
+            .setTitle("ICT Backtest — $selectedSymbol")
             .setMessage(
-                "Symbol: $selectedSymbol\n" +
-                        "Timeframe: $selectedTimeframe\n\n" +
-                        "Backtest engine will use real OHLC data."
+                "Timeframe: $selectedTimeframe\\nBars loaded: ${bars.size}\\n\\n" +
+                    "Trades: ${stats.trades}\\nWins: ${stats.wins}\\nLosses: ${stats.losses}\\n" +
+                    "Win rate: ${stats.winRatePercent}%\\nNet R: ${stats.netR}\\n" +
+                    "Profit factor: ${stats.profitFactor}\\nMax drawdown: ${stats.maxDrawdownR}R\\n" +
+                    "Expectancy: ${stats.expectancyR}R\\n\\n" +
+                    "LIMITATION: ${stats.coverageNote}\\n" +
+                    "Spread, commission and slippage are not modeled. This is not proof of profitability."
             )
             .setPositiveButton("CLOSE", null)
             .show()
