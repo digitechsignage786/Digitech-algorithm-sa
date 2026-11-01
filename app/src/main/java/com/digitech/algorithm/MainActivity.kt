@@ -829,9 +829,14 @@ super.onCreate(savedInstanceState)
                     "Trades: ${stats.trades}\\nWins: ${stats.wins}\\nLosses: ${stats.losses}\\n" +
                     "Win rate: ${stats.winRatePercent}%\\nNet R: ${stats.netR}\\n" +
                     "Profit factor: ${stats.profitFactor}\\nMax drawdown: ${stats.maxDrawdownR}R\\n" +
-                    "Expectancy: ${stats.expectancyR}R\\n\\n" +
-                    "LIMITATION: ${stats.coverageNote}\\n" +
-                    "Spread, commission and slippage are not modeled. This is not proof of profitability."
+                    "Expectancy: \${stats.expectancyR}R\\n\\n" +
+                    (if (stats.trades == 0) {
+                        "NO QUALIFIED HISTORICAL TRADES: no setup passed the current strict ICT/execution filters in this sample. This does not mean the market had no movement.\\n\\n"
+                    } else {
+                        "RESULTS ARE GROSS SIMULATION ONLY; they are not live-trading results.\\n\\n"
+                    }) +
+                    "LIMITATION: \${stats.coverageNote}\\n" +
+                    "Spread, commission, slippage and complete news-calendar checks are not modeled/available. This is not proof of profitability."
             )
             .setPositiveButton("CLOSE", null)
             .show()
