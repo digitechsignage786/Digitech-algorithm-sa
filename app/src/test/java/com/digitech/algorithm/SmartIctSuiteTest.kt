@@ -141,4 +141,33 @@ class SmartIctSuiteTest {
         assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
     }
 
+
+    @Test fun paperEngineBlocksUnqualifiedSignalsAndNeverCreatesPosition() {
+        val engine = PaperTradingEngine()
+        val s = SmartIctSuite.Signal(true, 1_790_000_000_000L, 100f, 99f, 101f, 102f, 103f, 2f, 1f, 3, false, emptyList())
+        assertTrue(engine.openFromSignal("EUR/USD", s, s.timeMillis) == null)
+        assertTrue(engine.snapshot().openPosition == null)
+    }
+
+    @Test fun paperEngineOpensAndClosesVirtualTradeAtTarget() {
+        val engine = PaperTradingEngine()
+        val t = 1_790_000_000_000L
+        val s = SmartIctSuite.Signal(true, t, 100f, 99f, 101f, 102f, 103f, 2f, 1f, 3, true, emptyList())
+        val p = engine.openFromSignal("EUR/USD", s, t)!!
+        assertTrue(p.quantity > 0.0)
+        val closed = engine.onCandle(Candle(t + 60_000L, 100f, 102.5f, 99.5f, 102f))!!
+        assertTrue(closed.reason == "TAKE_PROFIT_2")
+        assertTrue(closed.pnl > 0.0)
+        assertTrue(engine.snapshot().openPosition == null)
+    }
+
+    @Test fun paperEngineUsesStopFirstWhenBothLevelsTouch() {
+        val engine = PaperTradingEngine()
+        val t = 1_790_000_000_000L
+        val s = SmartIctSuite.Signal(true, t, 100f, 99f, 101f, 102f, 103f, 2f, 1f, 3, true, emptyList())
+        engine.openFromSignal("EUR/USD", s, t)
+        val closed = engine.onCandle(Candle(t + 60_000L, 100f, 103f, 98f, 101f))!!
+        assertTrue(closed.reason == "STOP_LOSS")
+        assertTrue(closed.pnl < 0.0)
+    }
 }
