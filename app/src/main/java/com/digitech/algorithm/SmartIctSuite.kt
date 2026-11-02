@@ -742,7 +742,7 @@ internal object SmartIctSuite {
         Capability("Silver Bullet/Judas/Turtle Soup/Unicorn/ICT 2022/PO3/MMXM",hasBars,"Heuristic candidates; require contextual validation"),
         Capability("SMT / related instruments",input.relatedMarkets.isNotEmpty(),"Requires synchronized real related-market OHLC"),
         Capability("Multi-timeframe bias/confluence",input.timeframes.isNotEmpty(),"Requires actual bars per timeframe"),
-        Capability("News/risk/spread/feed filters",hasBars,"Calendar completeness and spread depend on supplied provider data"),
+        Capability("News/risk/spread/feed filters", hasBars && input.news.isNotEmpty() && cfg.newsCalendarComplete && cfg.actualSpreadBps != null && cfg.feedState == FeedState.LIVE && cfg.latestFeedTimeMillis != null && cfg.nowMillis != null && cfg.nowMillis - cfg.latestFeedTimeMillis <= cfg.maxDataAgeMillis, "Ready only with complete supplied news calendar, measured spread, live feed timestamp and current clock"),
         Capability("Backtesting",hasBars,"Historical prefix replay; simplified fills"),
         Capability("MT5 / real-money execution",false,"Disabled pending broker adapter and explicit authorization")
     )
