@@ -909,7 +909,7 @@ super.onCreate(savedInstanceState)
             "5. DEALING RANGE & TIME" to listOf(
                 "RANGE_", "PRICE_DELIVERY_RANGE", "CRT_", "IPDA_", "ASIA_RANGE", "OPENING_RANGE_",
                 "LONDON_KILL_ZONE", "NY_AM_KILL_ZONE", "NY_PM", "LONDON_CLOSE", "SESSION_", "MACRO_WINDOW",
-                "MIDNIGHT_OPEN", "PDH", "PDL", "PWH", "PWL", "DAILY_OPEN", "WEEKLY_OPEN"
+                "MIDNIGHT_OPEN", "DAILY_BIAS_", "WEEKLY_BIAS_", "MONTHLY_BIAS_", "PDH", "PDL", "PWH", "PWL", "DAILY_OPEN", "WEEKLY_OPEN"
             ),
             "6. MODELS & TRADE PLAN" to listOf(
                 "SILVER_BULLET", "JUDAS_SWING", "TURTLE_SOUP", "UNICORN", "ICT_2022_MODEL",
