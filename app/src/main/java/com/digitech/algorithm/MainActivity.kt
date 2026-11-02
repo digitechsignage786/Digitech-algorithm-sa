@@ -850,17 +850,119 @@ super.onCreate(savedInstanceState)
             "VWAP",
             "RSI",
             "MACD",
-            "ICT Auto Analysis"
+            "ICT Auto Analysis",
+            "ICT Smart List"
         )
 
         android.app.AlertDialog.Builder(this)
             .setTitle("Indicators")
             .setItems(items) { _, which ->
-                if (which == items.lastIndex) {
-                    showSignals()
+                when (items[which]) {
+                    "ICT Auto Analysis" -> showSignals()
+                    "ICT Smart List" -> showIctSmartList()
                 }
             }
             .setNegativeButton("CLOSE", null)
+            .show()
+    }
+
+    /**
+     * Read-only live coverage view. ACTIVE means the current supplied real-candle
+     * sample emitted at least one mark for that concept; WAITING means it did not.
+     * It deliberately does not claim that every catalogue concept has a complete
+     * canonical detector or that external-data concepts are available.
+     */
+    private fun showIctSmartList() {
+        val bars = synchronized(historicalCandles) {
+            historicalCandles.toList().takeLast(300)
+        }
+        if (bars.size < 5) {
+            android.app.AlertDialog.Builder(this)
+                .setTitle("ICT Smart List")
+                .setMessage("At least five valid real OHLC candles are required. No demo candles are used.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
+
+        val result = SmartIctSuite.analyze(
+            SmartIctSuite.Input(candles = bars, symbol = selectedSymbol)
+        )
+        val counts = result.marks.groupingBy { it.tag }.eachCount()
+        val groups = linkedMapOf(
+            "1. MARKET STRUCTURE" to listOf(
+                "SWING_", "HH", "HL", "LH", "LL", "SHORT_TERM_", "INTERMEDIATE_TERM_",
+                "LONG_TERM_", "BOS_", "CHOCH_", "MSS_", "PROTECTED_", "INTERNAL_STRUCTURE", "EXTERNAL_STRUCTURE"
+            ),
+            "2. LIQUIDITY" to listOf(
+                "BSL", "SSL", "EQH", "EQL", "RELATIVE_EQUAL_", "LIQUIDITY_SWEEP_",
+                "IRL", "ERL", "DRAW_ON_LIQUIDITY_", "INDUCEMENT_"
+            ),
+            "3. IMBALANCE & DISPLACEMENT" to listOf(
+                "FVG_", "IFVG_", "BPR", "VOLUME_IMBALANCE", "DISPLACEMENT_", "CE_50",
+                "OPENING_GAP", "NDOG", "NWOG", "LIQUIDITY_VOID_"
+            ),
+            "4. ORDER BLOCKS & PD ARRAYS" to listOf(
+                "ORDER_BLOCK_", "BREAKER_", "MITIGATION_", "REJECTION_", "PROPULSION_",
+                "VACUUM_", "PREMIUM", "DISCOUNT", "EQUILIBRIUM", "OTE", "FIB_"
+            ),
+            "5. DEALING RANGE & TIME" to listOf(
+                "RANGE_", "PRICE_DELIVERY_RANGE", "CRT_", "IPDA_", "ASIA_RANGE",
+                "KILL_ZONE", "NY_PM", "LONDON_CLOSE", "SESSION_", "MACRO_WINDOW",
+                "MIDNIGHT_OPEN", "PDH", "PDL", "PWH", "PWL", "DAILY_OPEN", "WEEKLY_OPEN"
+            ),
+            "6. MODELS & TRADE PLAN" to listOf(
+                "SILVER_BULLET", "JUDAS_SWING", "TURTLE_SOUP", "UNICORN", "ICT_2022_MODEL",
+                "POWER_OF_THREE", "MMXM", "AMD_", "_ENTRY", "SMT_", "HTF_", "MTF_",
+                "BUY_SETUP", "SELL_SETUP", "ENTRY", "STOP_LOSS", "TAKE_PROFIT_", "NO_TRADE"
+            ),
+            "7. DATA & EXECUTION FILTERS" to listOf(
+                "NEWS_WARNING", "SPREAD_WARNING", "STALE_DATA_WARNING"
+            )
+        )
+        val allTags = SmartIctSuite.Tag.values()
+        val output = StringBuilder()
+        output.append("Symbol: ").append(selectedSymbol)
+            .append("   Timeframe: ").append(selectedTimeframe)
+            .append("\\nReal candles checked: ").append(bars.size)
+            .append("\\nDetected marks: ").append(result.marks.size)
+            .append("\\n\\nACTIVE = detected in this sample; WAITING = not detected in this sample.")
+            .append("\\nThis is live detection status, not a claim of completed canonical coverage.\\n")
+
+        for ((heading, prefixes) in groups) {
+            output.append("\\n").append(heading).append("\\n")
+            val groupTags = allTags.filter { tag ->
+                val name = tag.name
+                prefixes.any { prefix ->
+                    if (prefix.startsWith("_")) name.endsWith(prefix) else name.startsWith(prefix)
+                }
+            }
+            for (tag in groupTags) {
+                val count = counts[tag] ?: 0
+                output.append(if (count > 0) "✓ ACTIVE  " else "○ WAITING  ")
+                    .append(tag.name.replace("_", " "))
+                if (count > 0) output.append(" (").append(count).append(")")
+                output.append("\\n")
+            }
+        }
+        output.append("\\nLIMITATIONS\\n")
+        result.warnings.forEach { output.append("• ").append(it).append("\\n") }
+        output.append("Some concepts need higher/lower timeframe, related-market, volume, news or spread data. Missing inputs are not fabricated.")
+
+        val body = android.widget.TextView(this).apply {
+            text = output.toString()
+            textSize = 13f
+            setTextColor(Color.LTGRAY)
+            setPadding(dp(16), dp(12), dp(16), dp(12))
+        }
+        val scroll = android.widget.ScrollView(this).apply {
+            addView(body)
+            isFillViewport = true
+        }
+        android.app.AlertDialog.Builder(this)
+            .setTitle("ICT Smart List — $selectedSymbol")
+            .setView(scroll)
+            .setPositiveButton("CLOSE", null)
             .show()
     }
 
