@@ -785,22 +785,22 @@ super.onCreate(savedInstanceState)
         val signalText = if (latest == null) {
             "SETUP: NO CONFIRMED SIGNAL"
         } else {
-            "SETUP: ${if (latest.bullish) "BUY" else "SELL"} (ANALYTICAL ONLY)\\n" +
-                "Entry: ${latest.entry}\\nStop Loss: ${latest.stopLoss}\\n" +
-                "TP1: ${latest.takeProfit1}\\nTP2: ${latest.takeProfit2}\\n" +
-                "TP3: ${latest.takeProfit3}\\nRisk: ${latest.riskPercent}%\\n" +
-                "R:R to TP2: ${latest.riskReward2}\\n" +
+            "SETUP: ${if (latest.bullish) "BUY" else "SELL"} (ANALYTICAL ONLY)\n" +
+                "Entry: ${latest.entry}\nStop Loss: ${latest.stopLoss}\n" +
+                "TP1: ${latest.takeProfit1}\nTP2: ${latest.takeProfit2}\n" +
+                "TP3: ${latest.takeProfit3}\nRisk: ${latest.riskPercent}%\n" +
+                "R:R to TP2: ${latest.riskReward2}\n" +
                 "Execution filters: ${if (latest.tradeFiltersPassed) "PASSED" else "BLOCKED"}"
         }
-        val recentMarks = result.marks.takeLast(12).joinToString("\\n") {
+        val recentMarks = result.marks.takeLast(12).joinToString("\n") {
             it.tag.name.replace("_", " ") + if (it.invalidated) " (INVALIDATED)" else ""
         }.ifBlank { "No confirmed ICT marks" }
-        val warnings = result.warnings.joinToString("\\n") { "• $it" }
+        val warnings = result.warnings.joinToString("\n") { "• $it" }
         android.app.AlertDialog.Builder(this)
             .setTitle("ICT Analysis — $selectedSymbol")
             .setMessage(
-                "Timeframe: $selectedTimeframe\\nReal OHLC bars: ${bars.size}\\n\\n" +
-                    "$signalText\\n\\nRECENT ICT MARKS\\n$recentMarks\\n\\nWARNINGS\\n$warnings\\n\\n" +
+                "Timeframe: $selectedTimeframe\nReal OHLC bars: ${bars.size}\n\n" +
+                    "$signalText\n\nRECENT ICT MARKS\n$recentMarks\n\nWARNINGS\n$warnings\n\n" +
                     "No order is sent. MT5/real-money execution remains disabled."
             )
             .setPositiveButton("OK", null)
@@ -825,17 +825,17 @@ super.onCreate(savedInstanceState)
         android.app.AlertDialog.Builder(this)
             .setTitle("ICT Backtest — $selectedSymbol")
             .setMessage(
-                "Timeframe: $selectedTimeframe\\nBars loaded: ${bars.size}\\n\\n" +
-                    "Trades: ${stats.trades}\\nWins: ${stats.wins}\\nLosses: ${stats.losses}\\n" +
-                    "Win rate: ${stats.winRatePercent}%\\nNet R: ${stats.netR}\\n" +
-                    "Profit factor: ${stats.profitFactor}\\nMax drawdown: ${stats.maxDrawdownR}R\\n" +
-                    "Expectancy: \${stats.expectancyR}R\\n\\n" +
+                "Timeframe: $selectedTimeframe\nBars loaded: ${bars.size}\n\n" +
+                    "Trades: ${stats.trades}\nWins: ${stats.wins}\nLosses: ${stats.losses}\n" +
+                    "Win rate: ${stats.winRatePercent}%\nNet R: ${stats.netR}\n" +
+                    "Profit factor: ${stats.profitFactor}\nMax drawdown: ${stats.maxDrawdownR}R\n" +
+                    "Expectancy: \${stats.expectancyR}R\n\n" +
                     (if (stats.trades == 0) {
-                        "NO QUALIFIED HISTORICAL TRADES: no setup passed the current strict ICT/execution filters in this sample. This does not mean the market had no movement.\\n\\n"
+                        "NO QUALIFIED HISTORICAL TRADES: no setup passed the current strict ICT/execution filters in this sample. This does not mean the market had no movement.\n\n"
                     } else {
-                        "RESULTS ARE GROSS SIMULATION ONLY; they are not live-trading results.\\n\\n"
+                        "RESULTS ARE GROSS SIMULATION ONLY; they are not live-trading results.\n\n"
                     }) +
-                    "LIMITATION: \${stats.coverageNote}\\n" +
+                    "LIMITATION: \${stats.coverageNote}\n" +
                     "Spread, commission, slippage and complete news-calendar checks are not modeled/available. This is not proof of profitability."
             )
             .setPositiveButton("CLOSE", null)
@@ -896,7 +896,7 @@ super.onCreate(savedInstanceState)
             ),
             "2. LIQUIDITY" to listOf(
                 "BSL", "SSL", "EQH", "EQL", "RELATIVE_EQUAL_", "LIQUIDITY_SWEEP_",
-                "IRL", "ERL", "DRAW_ON_LIQUIDITY_", "INDUCEMENT_"
+                "IRL", "ERL", "DRAW_ON_LIQUIDITY_", "INDUCEMENT_", "CISD_"
             ),
             "3. IMBALANCE & DISPLACEMENT" to listOf(
                 "FVG_", "IFVG_", "BPR", "VOLUME_IMBALANCE", "DISPLACEMENT_", "CE_50",
@@ -907,8 +907,8 @@ super.onCreate(savedInstanceState)
                 "VACUUM_", "PREMIUM", "DISCOUNT", "EQUILIBRIUM", "OTE", "FIB_"
             ),
             "5. DEALING RANGE & TIME" to listOf(
-                "RANGE_", "PRICE_DELIVERY_RANGE", "CRT_", "IPDA_", "ASIA_RANGE",
-                "KILL_ZONE", "NY_PM", "LONDON_CLOSE", "SESSION_", "MACRO_WINDOW",
+                "RANGE_", "PRICE_DELIVERY_RANGE", "CRT_", "IPDA_", "ASIA_RANGE", "OPENING_RANGE_",
+                "LONDON_KILL_ZONE", "NY_AM_KILL_ZONE", "NY_PM", "LONDON_CLOSE", "SESSION_", "MACRO_WINDOW",
                 "MIDNIGHT_OPEN", "PDH", "PDL", "PWH", "PWL", "DAILY_OPEN", "WEEKLY_OPEN"
             ),
             "6. MODELS & TRADE PLAN" to listOf(
@@ -924,13 +924,13 @@ super.onCreate(savedInstanceState)
         val output = StringBuilder()
         output.append("Symbol: ").append(selectedSymbol)
             .append("   Timeframe: ").append(selectedTimeframe)
-            .append("\\nReal candles checked: ").append(bars.size)
-            .append("\\nDetected marks: ").append(result.marks.size)
-            .append("\\n\\nACTIVE = detected in this sample; WAITING = not detected in this sample.")
-            .append("\\nThis is live detection status, not a claim of completed canonical coverage.\\n")
+            .append("\nReal candles checked: ").append(bars.size)
+            .append("\nDetected marks: ").append(result.marks.size)
+            .append("\n\nACTIVE = detected in this sample; WAITING = not detected in this sample.")
+            .append("\nThis is live detection status, not a claim of completed canonical coverage.\n")
 
         for ((heading, prefixes) in groups) {
-            output.append("\\n").append(heading).append("\\n")
+            output.append("\n").append(heading).append("\n")
             val groupTags = allTags.filter { tag ->
                 val name = tag.name
                 prefixes.any { prefix ->
@@ -942,11 +942,11 @@ super.onCreate(savedInstanceState)
                 output.append(if (count > 0) "✓ ACTIVE  " else "○ WAITING  ")
                     .append(tag.name.replace("_", " "))
                 if (count > 0) output.append(" (").append(count).append(")")
-                output.append("\\n")
+                output.append("\n")
             }
         }
-        output.append("\\nLIMITATIONS\\n")
-        result.warnings.forEach { output.append("• ").append(it).append("\\n") }
+        output.append("\nLIMITATIONS\n")
+        result.warnings.forEach { output.append("• ").append(it).append("\n") }
         output.append("Some concepts need higher/lower timeframe, related-market, volume, news or spread data. Missing inputs are not fabricated.")
 
         val body = android.widget.TextView(this).apply {
