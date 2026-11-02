@@ -132,7 +132,29 @@ class SmartIctSuiteTest {
         }
     }
 
-    @Test fun missingExternalInputsRemainExplicitlyPending() {
+    @Test fun executionFilterCapabilityRequiresAllRealExternalInputs() {
+        val bars = bars()
+        val missing = SmartIctSuite.analyze(SmartIctSuite.Input(candles = bars))
+        val missingCapability = missing.capabilities.first { it.name.startsWith("News/risk/spread/feed") }
+        assertFalse("OHLC alone must not mark external execution filters ready", missingCapability.ready)
+
+        val now = bars.last().time
+        val ready = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = bars,
+            news = listOf(SmartIctSuite.NewsEvent(now + 60 * 60_000L, "USD", SmartIctSuite.Impact.LOW)),
+            config = SmartIctSuite.Config(
+                newsCalendarComplete = true,
+                actualSpreadBps = 1f,
+                feedState = SmartIctSuite.FeedState.LIVE,
+                latestFeedTimeMillis = now,
+                nowMillis = now
+            )
+        ))
+        assertTrue("Capability should be ready only when every required real input is present",
+            ready.capabilities.first { it.name.startsWith("News/risk/spread/feed") }.ready)
+    }
+
+        @Test fun missingExternalInputsRemainExplicitlyPending() {
         val result = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
         assertTrue(result.warnings.any { it.contains("SMT is awaiting synchronized related-market OHLC") })
         assertTrue(result.warnings.any { it.contains("MTF bias/confluence is awaiting actual timeframe candles") })
