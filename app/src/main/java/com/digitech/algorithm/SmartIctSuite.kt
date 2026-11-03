@@ -757,7 +757,12 @@ internal object SmartIctSuite {
         Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
             name.isNotBlank() && raw.size >= 5
         },"Uses supplied timeframe bars; chart-derived aggregation is a higher-timeframe proxy, not an independent feed"),
-        Capability("News/risk/spread/feed filters",hasBars,"Calendar completeness and spread depend on supplied provider data"),
+        Capability(
+            "News calendar + live spread filters",
+            hasBars && input.config.newsCalendarComplete &&
+                (input.config.actualSpreadBps?.let { it.isFinite() && it >= 0f } == true),
+            "Ready only when complete news-calendar coverage and a finite non-negative live spread are supplied; chart OHLC alone is insufficient"
+        ),
         Capability("Backtesting",hasBars,"Historical prefix replay; simplified fills"),
         Capability("MT5 / real-money execution",false,"Disabled pending broker adapter and explicit authorization")
     )
