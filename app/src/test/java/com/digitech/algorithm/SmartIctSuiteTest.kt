@@ -150,6 +150,18 @@ class SmartIctSuiteTest {
         assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
     }
 
+    @Test fun invalidSpreadValuesNeverMarkNewsAndSpreadCapabilityReady() {
+        listOf(Float.NaN, Float.POSITIVE_INFINITY, -0.1f, 99f).forEach { spread ->
+            val result = SmartIctSuite.analyze(SmartIctSuite.Input(
+                candles = bars(),
+                config = SmartIctSuite.Config(newsCalendarComplete = true, actualSpreadBps = spread)
+            ))
+            assertFalse("Invalid spread accepted: $spread",
+                result.capabilities.any { it.name.startsWith("News calendar + live spread") && it.ready })
+            assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.SPREAD_WARNING })
+        }
+    }
+
     @Test fun newsAndSpreadCapabilityRequiresProviderValues() {
         val incomplete = SmartIctSuite.analyze(SmartIctSuite.Input(
             candles = bars(),
