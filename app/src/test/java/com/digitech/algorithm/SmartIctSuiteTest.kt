@@ -94,6 +94,21 @@ class SmartIctSuiteTest {
         ))
         assertTrue(result.warnings.any { it.contains("News calendar coverage is not confirmed") })
         assertTrue(result.warnings.any { it.contains("Spread is unavailable") })
+        assertFalse(result.capabilities.any { it.name.startsWith("News calendar + live spread") && it.ready })
         assertFalse(SmartIctSuite.realMoneyExecutionAllowed())
+    }
+
+    @Test fun newsAndSpreadCapabilityRequiresProviderValues() {
+        val incomplete = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = bars(),
+            config = SmartIctSuite.Config(newsCalendarComplete = false, actualSpreadBps = null)
+        ))
+        assertFalse(incomplete.capabilities.any { it.name.startsWith("News calendar + live spread") && it.ready })
+
+        val supplied = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = bars(),
+            config = SmartIctSuite.Config(newsCalendarComplete = true, actualSpreadBps = 1.2f)
+        ))
+        assertTrue(supplied.capabilities.any { it.name.startsWith("News calendar + live spread") && it.ready })
     }
 }
