@@ -111,4 +111,44 @@ class SmartIctSuiteTest {
         ))
         assertTrue(supplied.capabilities.any { it.name.startsWith("News calendar + live spread") && it.ready })
     }
+
+    private fun fixture(values: List<FloatArray>): List<Candle> {
+        val start = 1_790_100_000_000L
+        return values.mapIndexed { i, v ->
+            Candle(start + i * 60_000L, v[0], v[1], v[2], v[3])
+        }
+    }
+
+    @Test fun bullishStructureBreakIsNotConfirmedBeforePivotRightBarsExist() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(12f, 15f, 11f, 14f),
+            floatArrayOf(13f, 13.5f, 10f, 11f),
+            floatArrayOf(11f, 12f, 9.5f, 10f),
+            floatArrayOf(14f, 16f, 13f, 15.5f),
+            floatArrayOf(15.5f, 15.8f, 14f, 15f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val pivot = result.marks.first { it.tag == SmartIctSuite.Tag.SWING_HIGH && it.startTime == candles[2].time }
+        assertTrue(pivot.confirmedAt == candles[4].time)
+        val bos = result.marks.first { it.tag == SmartIctSuite.Tag.BOS_BULLISH && it.startTime == candles[2].time }
+        assertTrue(bos.confirmedAt == candles[5].time)
+        assertTrue(bos.confirmedAt > pivot.confirmedAt)
+    }
+
+    @Test fun bearishFvgInvalidationRequiresCloseBeyondItsFarBoundary() {
+        val candles = fixture(listOf(
+            floatArrayOf(12.5f, 13f, 12f, 12.5f),
+            floatArrayOf(12.4f, 12.6f, 10.8f, 11f),
+            floatArrayOf(10.5f, 11f, 9.5f, 10f),
+            floatArrayOf(11.5f, 12.5f, 11f, 12.2f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.FVG_BEARISH })
+        val invalidation = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_INVALIDATED }
+        assertTrue(invalidation.confirmedAt == candles[3].time)
+        assertTrue(invalidation.note.contains("close above upper boundary"))
+    }
+
 }
