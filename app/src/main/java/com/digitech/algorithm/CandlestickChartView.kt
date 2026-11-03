@@ -433,7 +433,8 @@ class CandlestickChartView(context: Context) : View(context) {
             drawCandles(canvas)
             // ICT structure overlays: confirmed pivots only, directly on the main chart.
             drawIctStructureOverlays(canvas)
-            drawSmartIctEngineOverlays(canvas)
+            // The SmartIctSuite renderer is the single owner of Smart ICT overlays.
+            // Do not draw the legacy engine layer here: it duplicates BOS/FVG/OB/EQ marks.
             drawSmartIctSuiteOverlays(canvas)
             drawCurrentPrice(canvas)
             drawPriceScale(canvas)
@@ -1289,8 +1290,10 @@ class CandlestickChartView(context: Context) : View(context) {
                     // across the entire chart after a redraw.
                     val zoneHeight = abs(mark.high - mark.low)
                     val recentZone = mark.endTime >= recentCutoff
+                    val nearPrice = lastPrice >= mark.low - visiblePriceBand &&
+                        lastPrice <= mark.high + visiblePriceBand
                     zoneHeight.isFinite() && zoneHeight > 0f &&
-                        zoneHeight <= span * 0.12f && recentZone
+                        zoneHeight <= span * 0.12f && recentZone && nearPrice
                 } else {
                     true
                 }
@@ -1311,9 +1314,12 @@ class CandlestickChartView(context: Context) : View(context) {
                             event.tag == SmartIctSuite.Tag.NEWS_WARNING ||
                             event.tag == SmartIctSuite.Tag.SPREAD_WARNING ||
                             event.tag == SmartIctSuite.Tag.STALE_DATA_WARNING -> true
-                        resolvedState -> recent
-                        isLevel -> nearPrice || recent
-                        else -> nearPrice || recent
+                        // Filled/invalidated zones are historical context, not active setups.
+                        resolvedState -> recent && nearPrice
+                        // Structural levels and signals appear only when close enough
+                        // to the current market price to matter on this chart view.
+                        isLevel -> nearPrice
+                        else -> nearPrice
                     }
                 }
             }
