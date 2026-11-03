@@ -185,4 +185,29 @@ class SmartIctSuiteTest {
         })
     }
 
+
+
+    @Test fun dealingRangeAndEquilibriumUseConfiguredRealCandleWindow() {
+        val candles = bars()
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = candles,
+            config = SmartIctSuite.Config(dealingRangeLookback = 5)
+        ))
+        val range = result.marks.first { it.tag == SmartIctSuite.Tag.PRICE_DELIVERY_RANGE }
+        val equilibrium = result.marks.first { it.tag == SmartIctSuite.Tag.EQUILIBRIUM }
+        val premium = result.marks.first { it.tag == SmartIctSuite.Tag.PREMIUM }
+        val discount = result.marks.first { it.tag == SmartIctSuite.Tag.DISCOUNT }
+
+        // Last five real bars: low=10, high=14.2, equilibrium=12.1.
+        assertTrue(kotlin.math.abs(range.low - 10f) < 0.0001f)
+        assertTrue(kotlin.math.abs(range.high - 14.2f) < 0.0001f)
+        assertTrue(kotlin.math.abs(equilibrium.low - 12.1f) < 0.0001f)
+        assertTrue(kotlin.math.abs(premium.low - equilibrium.low) < 0.0001f)
+        assertTrue(kotlin.math.abs(premium.high - range.high) < 0.0001f)
+        assertTrue(kotlin.math.abs(discount.low - range.low) < 0.0001f)
+        assertTrue(kotlin.math.abs(discount.high - equilibrium.high) < 0.0001f)
+        assertTrue(range.startTime == candles[candles.lastIndex - 4].time)
+        assertTrue(range.endTime == candles.last().time)
+    }
+
 }
