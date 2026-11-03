@@ -42,8 +42,35 @@ class SmartIctSuiteTest {
             timeframes = mapOf("1H" to b, "4H" to b)
         ))
         assertFalse(result.capabilities.any { it.name.startsWith("SMT") && it.ready })
-        assertTrue(result.capabilities.any { it.name.startsWith("Multi-timeframe") && it.ready })
+        assertFalse(result.capabilities.any { it.name.startsWith("Multi-timeframe") && it.ready })
+        assertFalse(result.marks.any {
+            it.tag == SmartIctSuite.Tag.HTF_BIAS_BULLISH ||
+                it.tag == SmartIctSuite.Tag.HTF_BIAS_BEARISH ||
+                it.tag == SmartIctSuite.Tag.MTF_CONFLUENCE ||
+                it.tag == SmartIctSuite.Tag.MTF_CONFLICT
+        })
         assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.SMT_BULLISH || it.tag == SmartIctSuite.Tag.SMT_BEARISH })
+    }
+
+
+    @Test fun independentHigherTimeframeBarsCanProduceMtfBias() {
+        val chart = bars()
+        val start = chart.first().time
+        val higher = listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(9f, 11f, 8.5f, 10f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(11f, 13f, 10f, 12f),
+            floatArrayOf(12f, 14f, 11f, 13.5f)
+        ).mapIndexed { i,v ->
+            Candle(start + i * 3_600_000L, v[0], v[1], v[2], v[3])
+        }
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = chart,
+            timeframes = mapOf("1H" to higher)
+        ))
+        assertTrue(result.capabilities.any { it.name.startsWith("Multi-timeframe") && it.ready })
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.HTF_BIAS_BULLISH })
     }
 
     @Test fun missingMarketDataDoesNotGenerateSyntheticCandles() {
