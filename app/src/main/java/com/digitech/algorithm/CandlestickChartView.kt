@@ -1307,8 +1307,11 @@ class CandlestickChartView(context: Context) : View(context) {
                     }
                 }.thenByDescending { it.endTime }
             )
-            // Fewer simultaneous annotations improve readability on phone screens.
-            .take(4)
+            // Keep automatic visibility, but do not hide most active ICT families
+            // behind an overly restrictive four-mark cap. The relevance and
+            // per-tag newest-event filters above remain in force; this higher
+            // ceiling is only a final mobile readability guard.
+            .take(12)
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
