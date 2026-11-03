@@ -142,7 +142,8 @@ class SmartIctSuiteTest {
             floatArrayOf(12.5f, 13f, 12f, 12.5f),
             floatArrayOf(12.4f, 12.6f, 10.8f, 11f),
             floatArrayOf(10.5f, 11f, 9.5f, 10f),
-            floatArrayOf(11.5f, 12.5f, 11f, 12.2f)
+            floatArrayOf(11.5f, 12.5f, 11f, 12.2f),
+            floatArrayOf(12.1f, 12.3f, 11.8f, 12f)
         ))
         val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
         assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.FVG_BEARISH })
