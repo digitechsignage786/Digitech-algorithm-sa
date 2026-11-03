@@ -299,4 +299,42 @@ class SmartIctSuiteTest {
         assertTrue(breaker.confirmedAt == candles.last().time)
         assertTrue(mitigation.confirmedAt == candles.last().time)
     }
+\n}\
+
+    @Test fun invalidAndDuplicateOhlcRowsAreIgnoredWithoutInventingCandles() {
+        val valid = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(11f, 13f, 10f, 12f),
+            floatArrayOf(12f, 12.5f, 9.5f, 10f),
+            floatArrayOf(10f, 11f, 9f, 10.5f)
+        ))
+        val malformed = listOf(
+            Candle(valid[1].time + 1L, 10f, 8f, 11f, 9f), // high below open/close
+            Candle(valid[2].time + 1L, Float.NaN, 13f, 10f, 12f),
+            Candle(valid[3].time + 1L, 10f, 11f, 9f, Float.POSITIVE_INFINITY)
+        )
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles = valid + valid[2] + malformed))
+        val range = result.marks.first { it.tag == SmartIctSuite.Tag.PRICE_DELIVERY_RANGE }
+        assertTrue(range.startTime == valid.first().time)
+        assertTrue(range.endTime == valid.last().time)
+        assertTrue(result.warnings.none { it.contains("generated") })
+    }
+
+    @Test fun shortTermSwingLowIsConfirmedOnlyAfterRightSideBars() {
+        val candles = fixture(listOf(
+            floatArrayOf(10f, 11f, 8f, 9f),
+            floatArrayOf(9f, 10f, 6f, 7f),
+            floatArrayOf(7f, 9f, 4f, 5f),
+            floatArrayOf(5f, 8f, 5f, 7f),
+            floatArrayOf(7f, 9f, 6f, 8f),
+            floatArrayOf(8f, 10f, 7f, 9f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val shortLow = result.marks.first {
+            it.tag == SmartIctSuite.Tag.SHORT_TERM_LOW && it.startTime == candles[2].time
+        }
+        assertTrue(shortLow.confirmedAt == candles[4].time)
+        assertTrue(shortLow.low == 4f && shortLow.high == 4f)
+    }
 \n}\n
