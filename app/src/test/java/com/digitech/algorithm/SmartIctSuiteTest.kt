@@ -254,4 +254,49 @@ class SmartIctSuiteTest {
         assertTrue(shortHigh.low == 15f && shortHigh.high == 15f)
     }
 
-}
+
+
+    @Test fun bearishFvgTracksPartialFillFullFillAndInversionFromLaterCloses() {
+        val candles = fixture(listOf(
+            floatArrayOf(12.5f, 13f, 12f, 12.5f),
+            floatArrayOf(12.4f, 12.6f, 9f, 9.2f),
+            floatArrayOf(10f, 11f, 9.5f, 10f), // bearish gap: 11..12
+            floatArrayOf(10.5f, 11.5f, 10f, 11f), // partial entry
+            floatArrayOf(11f, 12.5f, 10.8f, 12.2f) // full traversal and close above
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val fvg = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_BEARISH }
+        val partial = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_PARTIAL_FILL }
+        val full = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL }
+        val invalid = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_INVALIDATED }
+        val inverse = result.marks.first { it.tag == SmartIctSuite.Tag.IFVG_BULLISH }
+
+        assertTrue(kotlin.math.abs(fvg.low - 11f) < 0.0001f)
+        assertTrue(kotlin.math.abs(fvg.high - 12f) < 0.0001f)
+        assertTrue(fvg.invalidated)
+        assertTrue(partial.confirmedAt == candles[3].time)
+        assertTrue(full.confirmedAt == candles[4].time)
+        assertTrue(invalid.confirmedAt == candles[4].time)
+        assertTrue(inverse.confirmedAt == candles[4].time)
+    }
+
+    @Test fun bearishOrderBlockRetestAndInvalidationAreDistinguished() {
+        val candles = fixture(listOf(
+            floatArrayOf(10f, 10.4f, 9.8f, 10.1f),
+            floatArrayOf(10f, 11f, 9.8f, 10.8f), // bullish order-block candle
+            floatArrayOf(10.7f, 10.8f, 5f, 5.2f), // strong bearish displacement
+            floatArrayOf(5.2f, 7f, 5f, 6f),
+            floatArrayOf(6f, 11.5f, 5.8f, 11.2f) // retest and close above OB high
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val ob = result.marks.first { it.tag == SmartIctSuite.Tag.ORDER_BLOCK_BEARISH }
+        val breaker = result.marks.first { it.tag == SmartIctSuite.Tag.BREAKER_BULLISH }
+        val mitigation = result.marks.first { it.tag == SmartIctSuite.Tag.MITIGATION_BLOCK }
+
+        assertTrue(kotlin.math.abs(ob.low - 9.8f) < 0.0001f)
+        assertTrue(kotlin.math.abs(ob.high - 11f) < 0.0001f)
+        assertTrue(ob.invalidated)
+        assertTrue(breaker.confirmedAt == candles.last().time)
+        assertTrue(mitigation.confirmedAt == candles.last().time)
+    }
+\n}\n
