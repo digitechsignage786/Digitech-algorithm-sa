@@ -25,6 +25,14 @@ class SmartIctSuiteTest {
         }
     }
 
+
+    private fun fixture(values: List<FloatArray>): List<Candle> {
+        val start = 1_800_000_000_000L
+        return values.mapIndexed { i, v ->
+            Candle(start + i * 60_000L, v[0], v[1], v[2], v[3])
+        }
+    }
+
     @Test fun realOhlcProducesRangeAndFvgMarks() {
         val r = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
         assertTrue(r.marks.any { it.tag == SmartIctSuite.Tag.EQUILIBRIUM })
@@ -299,7 +307,7 @@ class SmartIctSuiteTest {
         assertTrue(breaker.confirmedAt == candles.last().time)
         assertTrue(mitigation.confirmedAt == candles.last().time)
     }
-\n}\
+
 
     @Test fun invalidAndDuplicateOhlcRowsAreIgnoredWithoutInventingCandles() {
         val valid = fixture(listOf(
