@@ -33,7 +33,11 @@ jobs:
         run: gradle testDebugUnitTest
 
       - name: Build test APK
-        run: gradle assembleDebug
+        env:
+          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+        run: |
+          gradle --no-daemon assembleDebug \
+            -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
 
       - name: Upload test APK
         uses: actions/upload-artifact@v4
