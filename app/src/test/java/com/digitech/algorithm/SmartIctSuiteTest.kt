@@ -210,4 +210,48 @@ class SmartIctSuiteTest {
         assertTrue(range.endTime == candles.last().time)
     }
 
+
+
+    @Test fun bullishFvgTracksPartialFillFullFillAndInversionFromLaterCloses() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 11f, 9.5f, 10.8f),
+            floatArrayOf(12f, 13f, 12f, 12.8f), // gap: 10..12
+            floatArrayOf(12.5f, 12.8f, 11f, 11.5f), // enters gap, not full
+            floatArrayOf(10.5f, 11f, 9f, 9.5f) // traverses and closes below lower edge
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val fvg = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_BULLISH }
+        val partial = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_PARTIAL_FILL }
+        val full = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL }
+        val invalid = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_INVALIDATED }
+        val inverse = result.marks.first { it.tag == SmartIctSuite.Tag.IFVG_BEARISH }
+
+        assertTrue(kotlin.math.abs(fvg.low - 10f) < 0.0001f)
+        assertTrue(kotlin.math.abs(fvg.high - 12f) < 0.0001f)
+        assertTrue(fvg.invalidated)
+        assertTrue(partial.confirmedAt == candles[3].time)
+        assertTrue(full.confirmedAt == candles[4].time)
+        assertTrue(invalid.confirmedAt == candles[4].time)
+        assertTrue(inverse.confirmedAt == candles[4].time)
+    }
+
+    @Test fun shortTermSwingRequiresConfiguredRightSideConfirmationBars() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(11f, 15f, 10f, 14f),
+            floatArrayOf(12f, 13f, 9f, 10f),
+            floatArrayOf(10f, 12f, 8.5f, 11f),
+            floatArrayOf(11f, 12f, 9f, 10f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val shortHigh = result.marks.first {
+            it.tag == SmartIctSuite.Tag.SHORT_TERM_HIGH && it.startTime == candles[2].time
+        }
+        assertTrue(shortHigh.confirmedAt == candles[4].time)
+        assertTrue(shortHigh.confirmedAt > shortHigh.startTime)
+        assertTrue(shortHigh.low == 15f && shortHigh.high == 15f)
+    }
+
 }
