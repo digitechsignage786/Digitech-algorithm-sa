@@ -33,15 +33,16 @@ class SmartIctSuiteTest {
         assertTrue(r.marks.any { it.tag == SmartIctSuite.Tag.FVG_BULLISH })
     }
 
-    @Test fun synchronizedInputsAffectSmtAndMtfCapability() {
+    @Test fun duplicateChartDataCannotMasqueradeAsSmt() {
         val b = bars()
         val result = SmartIctSuite.analyze(SmartIctSuite.Input(
             candles = b,
             relatedMarkets = mapOf("EURUSD" to b),
             timeframes = mapOf("1H" to b, "4H" to b)
         ))
-        assertTrue(result.capabilities.any { it.name.startsWith("SMT") && it.ready })
+        assertFalse(result.capabilities.any { it.name.startsWith("SMT") && it.ready })
         assertTrue(result.capabilities.any { it.name.startsWith("Multi-timeframe") && it.ready })
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.SMT_BULLISH || it.tag == SmartIctSuite.Tag.SMT_BEARISH })
     }
 
     @Test fun missingMarketDataDoesNotGenerateSyntheticCandles() {
