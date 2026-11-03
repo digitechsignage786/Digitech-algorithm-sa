@@ -1271,6 +1271,20 @@ class CandlestickChartView(context: Context) : View(context) {
         // filters below still limit output to recent/price-relevant marks and cap
         // visible overlays, preventing the chart from being flooded with history.
         val displayTags = SmartIctSuite.Tag.values().toSet()
+        // These structure concepts already have dedicated, confirmed-pivot
+        // renderers in drawIctStructureOverlays(). Exclude them from this
+        // additive suite layer so the same BOS/EQ/liquidity/swing level is
+        // never painted twice on the chart.
+        val structureOwnedTags = setOf(
+            SmartIctSuite.Tag.BOS_BULLISH, SmartIctSuite.Tag.BOS_BEARISH,
+            SmartIctSuite.Tag.SWING_HIGH, SmartIctSuite.Tag.SWING_LOW,
+            SmartIctSuite.Tag.HH, SmartIctSuite.Tag.HL,
+            SmartIctSuite.Tag.LH, SmartIctSuite.Tag.LL,
+            SmartIctSuite.Tag.BSL, SmartIctSuite.Tag.SSL,
+            SmartIctSuite.Tag.EQH, SmartIctSuite.Tag.EQL,
+            SmartIctSuite.Tag.PREMIUM, SmartIctSuite.Tag.DISCOUNT,
+            SmartIctSuite.Tag.EQUILIBRIUM, SmartIctSuite.Tag.CE_50
+        )
         // Automatic ICT visibility: no manual per-concept switches. Keep active,
         // recent, or price-relevant concepts; hide resolved stale zones so the
         // chart stays readable. This only filters the additive ICT overlay.
@@ -1281,7 +1295,8 @@ class CandlestickChartView(context: Context) : View(context) {
         val levelLikeTags = levelTags
         val visible = result.marks
             .filter { mark ->
-                if (mark.tag !in displayTags || mark.endTime < visibleStart || mark.startTime > visibleEnd) {
+                if (mark.tag !in displayTags || mark.tag in structureOwnedTags ||
+                    mark.endTime < visibleStart || mark.startTime > visibleEnd) {
                     false
                 } else if (mark.tag in zoneTags) {
                     // Zones are context overlays, not full-history backgrounds.
