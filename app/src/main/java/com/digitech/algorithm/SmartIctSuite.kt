@@ -672,7 +672,13 @@ internal object SmartIctSuite {
         if(related.isEmpty()||c.size<5)return
         val w=c.takeLast(20); val pHigh=w.dropLast(1).maxOf { it.high }; val pLow=w.dropLast(1).minOf { it.low }; val p=w.last()
         related.forEach { (name,raw)->
-            val byTime=raw.filter { it.time>0L }.associateBy { it.time }
+            val clean = raw.filter { it.time > 0L && it.open.isFinite() && it.high.isFinite() && it.low.isFinite() && it.close.isFinite() }
+                .distinctBy { it.time }.sortedBy { it.time }
+            // Reject a duplicate copy of the chart series: it is not an independent
+            // instrument and must never create a synthetic SMT divergence.
+            if (clean.size < 5 || clean.map { listOf(it.open, it.high, it.low, it.close) } ==
+                c.takeLast(20).map { listOf(it.open, it.high, it.low, it.close) }) return@forEach
+            val byTime=clean.associateBy { it.time }
             val aligned=w.mapNotNull { x->byTime[x.time]?.let { x to it } }
             if(aligned.size<5)return@forEach
             val now=aligned.last(); val old=aligned.dropLast(1)
@@ -740,8 +746,12 @@ internal object SmartIctSuite {
         Capability("Premium/discount/equilibrium/OTE/dealing range",hasBars,"Configured rolling range"),
         Capability("Sessions, kill zones, PDH/PDL/PWH/PWL and opens",hasBars,"IANA time zone and observed candles"),
         Capability("Silver Bullet/Judas/Turtle Soup/Unicorn/ICT 2022/PO3/MMXM",hasBars,"Heuristic candidates; require contextual validation"),
-        Capability("SMT / related instruments",input.relatedMarkets.isNotEmpty(),"Requires synchronized real related-market OHLC"),
-        Capability("Multi-timeframe bias/confluence",input.timeframes.isNotEmpty(),"Requires actual bars per timeframe"),
+        Capability("SMT / related instruments",input.relatedMarkets.any { (name, raw) ->
+            name.isNotBlank() && raw.size >= 5 && raw.map { listOf(it.open, it.high, it.low, it.close) }.distinct().size >= 2
+        },"Requires an independent, timestamp-aligned related-market OHLC feed; duplicate chart data is rejected"),
+        Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
+            name.isNotBlank() && raw.size >= 5
+        },"Uses supplied timeframe bars; chart-derived aggregation is a higher-timeframe proxy, not an independent feed"),
         Capability("News/risk/spread/feed filters",hasBars,"Calendar completeness and spread depend on supplied provider data"),
         Capability("Backtesting",hasBars,"Historical prefix replay; simplified fills"),
         Capability("MT5 / real-money execution",false,"Disabled pending broker adapter and explicit authorization")
