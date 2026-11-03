@@ -337,4 +337,5 @@ class SmartIctSuiteTest {
         assertTrue(shortLow.confirmedAt == candles[4].time)
         assertTrue(shortLow.low == 4f && shortLow.high == 4f)
     }
-\n}\n
+
+}
