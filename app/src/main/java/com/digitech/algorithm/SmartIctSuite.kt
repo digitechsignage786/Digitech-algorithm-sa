@@ -428,7 +428,7 @@ internal object SmartIctSuite {
         addRangeMarks(candles,cfg,marks)
         addCalendarSessionMarks(candles,zone,marks)
         addSmtMarks(candles,input.relatedMarkets,marks)
-        addMtfMarks(input.timeframes,marks)
+        addMtfMarks(candles,input.timeframes,marks)
 
         val last=candles.last(); val recentFrom=candles[max(0,candles.lastIndex-3)].time
         val bullSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_SELL && it.endTime>=recentFrom }
@@ -689,15 +689,17 @@ internal object SmartIctSuite {
         }
     }
 
-    private fun addMtfMarks(frames:Map<String,List<Candle>>,o:MutableList<Mark>) {
-        val bias=frames.mapNotNull { (name,raw)->
-            val c=raw.filter { it.time>0L }.sortedBy { it.time }; if(c.size<5)null else {
-                val w=c.takeLast(20); val mid=(w.maxOf { it.high }+w.minOf { it.low })/2f
-                name to when { c.last().close>mid&&c.last().close>c[c.lastIndex-1].close->1
-                    c.last().close<mid&&c.last().close<c[c.lastIndex-1].close->-1 else->0 }
-            }
+    private fun addMtfMarks(chartCandles:List<Candle>,frames:Map<String,List<Candle>>,o:MutableList<Mark>) {
+        val validFrames=frames.mapNotNull { (name,raw)->
+            val c=validOhlcSeries(raw)
+            if(name.isBlank()||c.size<5||isDuplicateSeries(chartCandles,c)) null else name to c
+        }.toMap()
+        val bias=validFrames.mapNotNull { (name,c)->
+            val w=c.takeLast(20); val mid=(w.maxOf { it.high }+w.minOf { it.low })/2f
+            name to when { c.last().close>mid&&c.last().close>c[c.lastIndex-1].close->1
+                c.last().close<mid&&c.last().close<c[c.lastIndex-1].close->-1 else->0 }
         }
-        val bars=frames.values.filter { it.isNotEmpty() }.map { it.last() }; if(bars.isEmpty())return
+        val bars=validFrames.values.filter { it.isNotEmpty() }.map { it.last() }; if(bars.isEmpty())return
         val bull=bias.count { it.second>0 }; val bear=bias.count { it.second<0 }
         if(bull>bear)o+=m(Tag.HTF_BIAS_BULLISH,bars.first(),bars.last(),bars.minOf { it.low },bars.maxOf { it.high },bars.maxOf { it.time },"Supplied timeframe directional proxy")
         if(bear>bull)o+=m(Tag.HTF_BIAS_BEARISH,bars.first(),bars.last(),bars.minOf { it.low },bars.maxOf { it.high },bars.maxOf { it.time },"Supplied timeframe directional proxy")
@@ -731,6 +733,26 @@ internal object SmartIctSuite {
             o+=m(if(high)Tag.EXTERNAL_STRUCTURE else Tag.INTERNAL_STRUCTURE,x,x,p,p,x.time,"Structure hierarchy candidate")
         };prev=p}
     }
+    private fun validOhlcSeries(raw:List<Candle>):List<Candle> = raw.filter {
+        it.time > 0L && it.open.isFinite() && it.high.isFinite() && it.low.isFinite() &&
+            it.close.isFinite() && it.high >= max(it.open,it.close) &&
+            it.low <= min(it.open,it.close) && it.high >= it.low
+    }.distinctBy { it.time }.sortedBy { it.time }
+
+    private fun isDuplicateSeries(chartRaw:List<Candle>,candidateRaw:List<Candle>):Boolean {
+        val chart=validOhlcSeries(chartRaw)
+        val candidate=validOhlcSeries(candidateRaw)
+        if(chart.size<5||candidate.size<5)return false
+        val byTime=chart.associateBy { it.time }
+        val aligned=candidate.mapNotNull { c->byTime[c.time]?.let { it to c } }
+        if(aligned.size<5)return false
+        val exact=aligned.count { (a,b)->
+            a.open==b.open&&a.high==b.high&&a.low==b.low&&a.close==b.close
+        }
+        val overlapCoverage=aligned.size.toFloat()/min(chart.size,candidate.size).coerceAtLeast(1)
+        return overlapCoverage>=0.8f && exact.toFloat()/aligned.size>=0.9f
+    }
+
     private fun currenciesFor(symbol:String):Set<String> {
         val s=symbol.uppercase().replace("/","").replace("-","")
         return listOf("USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","XAU").filter { s.contains(it) }.toSet().ifEmpty { setOf("USD") }
@@ -755,8 +777,9 @@ internal object SmartIctSuite {
             }
         },"Requires an independent, timestamp-aligned related-market OHLC feed; duplicate chart data is rejected"),
         Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
-            name.isNotBlank() && raw.size >= 5
-        },"Uses supplied timeframe bars; chart-derived aggregation is a higher-timeframe proxy, not an independent feed"),
+            name.isNotBlank() && validOhlcSeries(raw).size >= 5 &&
+                !isDuplicateSeries(input.candles, validOhlcSeries(raw))
+        },"Requires valid timeframe OHLC distinct from a copied chart series; chart-derived aggregation remains a proxy"),
         Capability(
             "News calendar + live spread filters",
             hasBars && input.config.newsCalendarComplete &&
