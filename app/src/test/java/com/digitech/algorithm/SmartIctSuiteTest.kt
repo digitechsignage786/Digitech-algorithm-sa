@@ -152,4 +152,37 @@ class SmartIctSuiteTest {
         assertTrue(invalidation.note.contains("close above upper boundary"))
     }
 
+
+    @Test fun liquiditySweepsRequireWickThroughAndCloseBackInside() {
+        val buySide = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(12f, 15f, 11f, 14f),
+            floatArrayOf(13f, 13.5f, 10f, 11f),
+            floatArrayOf(11f, 12f, 9.5f, 10f),
+            floatArrayOf(14f, 16f, 13f, 14.5f)
+        ))
+        val buyResult = SmartIctSuite.analyze(SmartIctSuite.Input(buySide))
+        assertTrue(buyResult.marks.any {
+            it.tag == SmartIctSuite.Tag.LIQUIDITY_SWEEP_BUY &&
+                it.confirmedAt == buySide[5].time &&
+                it.note.contains("wick through, close back below")
+        })
+
+        val sellSide = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 7f, 11f),
+            floatArrayOf(11f, 13f, 5f, 8f),
+            floatArrayOf(8f, 12f, 7f, 10f),
+            floatArrayOf(10f, 12f, 6f, 11f),
+            floatArrayOf(7f, 9f, 4f, 6f)
+        ))
+        val sellResult = SmartIctSuite.analyze(SmartIctSuite.Input(sellSide))
+        assertTrue(sellResult.marks.any {
+            it.tag == SmartIctSuite.Tag.LIQUIDITY_SWEEP_SELL &&
+                it.confirmedAt == sellSide[5].time &&
+                it.note.contains("wick through, close back above")
+        })
+    }
+
 }
