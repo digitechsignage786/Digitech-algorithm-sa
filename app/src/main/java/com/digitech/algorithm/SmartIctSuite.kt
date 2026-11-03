@@ -490,8 +490,9 @@ internal object SmartIctSuite {
             blockers+="High-impact news in configured no-trade window"
             marks+=m(Tag.NEWS_WARNING,last,last,last.low,last.high,last.time,"High impact: " + hotNews.joinToString { it.title.ifBlank { it.currency } })
         }
-        if (cfg.actualSpreadBps==null) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread source unavailable; analytical signal cannot pass execution filters")
-        else if (cfg.actualSpreadBps>cfg.maxSpreadBps) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread gate blocked setup")
+        if (cfg.actualSpreadBps == null) marks += m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread source unavailable; analytical signal cannot pass execution filters")
+        else if (!cfg.actualSpreadBps.isFinite() || cfg.actualSpreadBps < 0f || cfg.actualSpreadBps > cfg.maxSpreadBps)
+            marks += m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread value is invalid or exceeds the configured limit; trade readiness blocked")
         if (cfg.feedState!=FeedState.LIVE || now-feedTime>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
         val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
         if (!sessionOk) blockers+="Outside configured London/NY session"
