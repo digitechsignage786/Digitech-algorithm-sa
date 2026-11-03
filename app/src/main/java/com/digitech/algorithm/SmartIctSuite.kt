@@ -672,12 +672,11 @@ internal object SmartIctSuite {
         if(related.isEmpty()||c.size<5)return
         val w=c.takeLast(20); val pHigh=w.dropLast(1).maxOf { it.high }; val pLow=w.dropLast(1).minOf { it.low }; val p=w.last()
         related.forEach { (name,raw)->
-            val clean = raw.filter { it.time > 0L && it.open.isFinite() && it.high.isFinite() && it.low.isFinite() && it.close.isFinite() }
-                .distinctBy { it.time }.sortedBy { it.time }
-            // Reject a duplicate copy of the chart series: it is not an independent
-            // instrument and must never create a synthetic SMT divergence.
-            if (clean.size < 5 || clean.map { listOf(it.open, it.high, it.low, it.close) } ==
-                c.takeLast(20).map { listOf(it.open, it.high, it.low, it.close) }) return@forEach
+            // Apply the same strict OHLC validation and duplicate-series rejection
+            // used by MTF. A merely non-identical copy is not sufficient evidence
+            // of an independent market for SMT.
+            val clean = validOhlcSeries(raw)
+            if (name.isBlank() || clean.size < 5 || isDuplicateSeries(c, clean)) return@forEach
             val byTime=clean.associateBy { it.time }
             val aligned=w.mapNotNull { x->byTime[x.time]?.let { x to it } }
             if(aligned.size<5)return@forEach
@@ -769,13 +768,11 @@ internal object SmartIctSuite {
         Capability("Sessions, kill zones, PDH/PDL/PWH/PWL and opens",hasBars,"IANA time zone and observed candles"),
         Capability("Silver Bullet/Judas/Turtle Soup/Unicorn/ICT 2022/PO3/MMXM",hasBars,"Heuristic candidates; require contextual validation"),
         Capability("SMT / related instruments",input.relatedMarkets.any { (name, raw) ->
-            val aligned = raw.filter { it.time > 0L }.associateBy { it.time }
-            val chartAligned = input.candles.filter { aligned.containsKey(it.time) }
-            name.isNotBlank() && chartAligned.size >= 5 && chartAligned.any { chart ->
-                val other = aligned[chart.time]!!
-                chart.open != other.open || chart.high != other.high || chart.low != other.low || chart.close != other.close
-            }
-        },"Requires an independent, timestamp-aligned related-market OHLC feed; duplicate chart data is rejected"),
+            val chart = validOhlcSeries(input.candles)
+            val related = validOhlcSeries(raw)
+            name.isNotBlank() && related.size >= 5 && !isDuplicateSeries(chart, related) &&
+                chart.takeLast(20).count { bar -> related.any { it.time == bar.time } } >= 5
+        },"Requires valid, independent, timestamp-aligned related-market OHLC; copied or malformed chart data is rejected"),
         Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
             name.isNotBlank() && validOhlcSeries(raw).size >= 5 &&
                 !isDuplicateSeries(input.candles, validOhlcSeries(raw))
