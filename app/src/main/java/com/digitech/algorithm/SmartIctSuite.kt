@@ -747,7 +747,12 @@ internal object SmartIctSuite {
         Capability("Sessions, kill zones, PDH/PDL/PWH/PWL and opens",hasBars,"IANA time zone and observed candles"),
         Capability("Silver Bullet/Judas/Turtle Soup/Unicorn/ICT 2022/PO3/MMXM",hasBars,"Heuristic candidates; require contextual validation"),
         Capability("SMT / related instruments",input.relatedMarkets.any { (name, raw) ->
-            name.isNotBlank() && raw.size >= 5 && raw.map { listOf(it.open, it.high, it.low, it.close) }.distinct().size >= 2
+            val aligned = raw.filter { it.time > 0L }.associateBy { it.time }
+            val chartAligned = input.candles.filter { aligned.containsKey(it.time) }
+            name.isNotBlank() && chartAligned.size >= 5 && chartAligned.any { chart ->
+                val other = aligned[chart.time]!!
+                chart.open != other.open || chart.high != other.high || chart.low != other.low || chart.close != other.close
+            }
         },"Requires an independent, timestamp-aligned related-market OHLC feed; duplicate chart data is rejected"),
         Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
             name.isNotBlank() && raw.size >= 5
