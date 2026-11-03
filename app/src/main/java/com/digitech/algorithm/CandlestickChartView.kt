@@ -1112,10 +1112,12 @@ class CandlestickChartView(context: Context) : View(context) {
         }
     }
 
-    // Additional Smart ICT marks are cached by candle fingerprint so a redraw does not
-    // rerun the full analysis on every animation frame. This renderer is additive only.
+    // Smart ICT analysis is deliberately kept off Android's UI/render thread.
+    // A single in-flight worker coalesces rapid live ticks; only results matching
+    // the latest candle fingerprint are published back to the chart.
     private var smartIctSuiteCacheKey: String = ""
     private var smartIctSuiteCache: SmartIctSuite.Result? = null
+    private var smartIctSuiteAnalysisInFlight: Boolean = false
 
     private fun drawSmartIctSuiteOverlays(canvas: Canvas) {
         if (candles.size < 5) return
@@ -1126,24 +1128,52 @@ class CandlestickChartView(context: Context) : View(context) {
         val fingerprint = candles.size.toString() + ":" + candles.first().time + ":" +
             last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close +
             ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + feedState.name
-        var result = smartIctSuiteCache
-        if (result == null || fingerprint != smartIctSuiteCacheKey) {
-            val frames = buildSmartIctTimeframeContext()
+        if (fingerprint != smartIctSuiteCacheKey && !smartIctSuiteAnalysisInFlight) {
+            smartIctSuiteAnalysisInFlight = true
+            val candleSnapshot = candles.toList()
+            val symbolSnapshot = liveSymbol
+            val intervalSnapshot = lastCandleIntervalMillis
+            val feedTimeSnapshot = liveTickTimeMillis
+            val framesSnapshot = buildSmartIctTimeframeContext()
             val config = SmartIctSuite.Config(
                 nowMillis = nowMillis,
                 feedState = feedState,
                 maxDataAgeMillis = 120_000L,
-                latestFeedTimeMillis = liveTickTimeMillis
+                latestFeedTimeMillis = feedTimeSnapshot
             )
-            result = SmartIctSuite.analyze(SmartIctSuite.Input(
-                candles = candles.toList(),
-                symbol = liveSymbol,
-                timeframes = frames,
-                config = config
-            ))
-            smartIctSuiteCacheKey = fingerprint
-            smartIctSuiteCache = result
+            Thread({
+                val computed = runCatching {
+                    SmartIctSuite.analyze(SmartIctSuite.Input(
+                        candles = candleSnapshot,
+                        symbol = symbolSnapshot,
+                        timeframes = framesSnapshot,
+                        config = config
+                    ))
+                }.getOrNull()
+                post {
+                    smartIctSuiteAnalysisInFlight = false
+                    val currentLast = candles.lastOrNull()
+                    val currentNow = System.currentTimeMillis()
+                    val currentFeedState = if (liveTickTimeMillis > 0L &&
+                        currentNow - liveTickTimeMillis <= 120_000L)
+                        SmartIctSuite.FeedState.LIVE else SmartIctSuite.FeedState.STALE
+                    val currentFingerprint = if (currentLast == null || candles.isEmpty()) "" else
+                        candles.size.toString() + ":" + candles.first().time + ":" +
+                            currentLast.time + ":" + currentLast.open + ":" + currentLast.high +
+                            ":" + currentLast.low + ":" + currentLast.close +
+                            ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + currentFeedState.name
+                    if (currentFingerprint == fingerprint) {
+                        smartIctSuiteCacheKey = fingerprint
+                        smartIctSuiteCache = computed
+                    }
+                    invalidate()
+                }
+            }, "SmartIctAnalysis").apply {
+                isDaemon = true
+                start()
+            }
         }
+        val result = smartIctSuiteCache ?: return
         val range = visibleRange()
         val highest = range.first
         val lowest = range.second
