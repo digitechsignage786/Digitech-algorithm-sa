@@ -481,7 +481,7 @@ internal object SmartIctSuite {
         if (cfg.dailyLossPercent>=cfg.dailyLossLimitPercent) blockers+="Daily loss limit reached"
         val atrPercent=atr.last()/abs(last.close).coerceAtLeast(0.0000001f)*100f
         if (atrPercent>cfg.maxAtrPercent) blockers+="ATR volatility exceeds configured maximum"
-        val spreadReady=cfg.actualSpreadBps!=null && cfg.actualSpreadBps<=cfg.maxSpreadBps
+        val spreadReady=cfg.actualSpreadBps?.let { it.isFinite() && it >= 0f && it <= cfg.maxSpreadBps } == true
         val tradeFiltersReady=spreadReady && cfg.newsCalendarComplete
         val currencies=currenciesFor(input.symbol)
         val hotNews=input.news.filter { it.impact==Impact.HIGH && it.currency.uppercase() in currencies &&
