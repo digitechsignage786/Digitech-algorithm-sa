@@ -8,6 +8,7 @@ on:
       - ict-bos-log-test-package-v1
       - smart-ict-complete-integration-v1
       - smart-ict-data-validation-v1
+      - ict-auto-visibility-review-v1
 
 jobs:
   build:
