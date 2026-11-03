@@ -53,6 +53,30 @@ class SmartIctSuiteTest {
     }
 
 
+    @Test fun smtReadinessRequiresFiveValidAlignedIndependentMarketBars() {
+        val chart = bars()
+        val independent = chart.mapIndexed { i, bar ->
+            Candle(bar.time, bar.open + 0.1f, bar.high + 0.2f, bar.low + 0.05f, bar.close + 0.1f)
+        }
+        val ready = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = chart,
+            relatedMarkets = mapOf("GBPUSD" to independent)
+        ))
+        assertTrue(ready.capabilities.any { it.name.startsWith("SMT") && it.ready })
+
+        val malformed = independent.mapIndexed { i, bar ->
+            if (i < 6) Candle(bar.time, bar.open, bar.low - 1f, bar.low, bar.close) else bar
+        }
+        val notReady = SmartIctSuite.analyze(SmartIctSuite.Input(
+            candles = chart,
+            relatedMarkets = mapOf("GBPUSD" to malformed)
+        ))
+        assertFalse(notReady.capabilities.any { it.name.startsWith("SMT") && it.ready })
+        assertFalse(notReady.marks.any {
+            it.tag == SmartIctSuite.Tag.SMT_BULLISH || it.tag == SmartIctSuite.Tag.SMT_BEARISH
+        })
+    }
+
     @Test fun independentHigherTimeframeBarsCanProduceMtfBias() {
         val chart = bars()
         val start = chart.first().time
