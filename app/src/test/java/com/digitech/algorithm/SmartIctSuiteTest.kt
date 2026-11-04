@@ -402,4 +402,37 @@ class SmartIctSuiteTest {
         assertTrue(shortLow.low == 4f && shortLow.high == 4f)
     }
 
+
+    @Test fun bullishFvgFullWickFillDoesNotMeanCloseInvalidation() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(9f, 11f, 9f, 10.8f),
+            floatArrayOf(11.5f, 12.5f, 10.5f, 12f), // bullish FVG: 10..10.5
+            floatArrayOf(10.2f, 10.4f, 9.8f, 10.2f), // full wick fill; close stays above 10
+            floatArrayOf(10.2f, 10.6f, 10.1f, 10.4f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val fvg = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_BULLISH }
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL })
+        assertFalse(fvg.invalidated)
+        assertTrue(fvg.note.contains("without invalidation close"))
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.IFVG_BEARISH })
+    }
+
+    @Test fun bearishFvgFullWickFillDoesNotMeanCloseInvalidation() {
+        val candles = fixture(listOf(
+            floatArrayOf(11f, 12f, 10f, 11f),
+            floatArrayOf(11f, 11.5f, 10f, 10.2f),
+            floatArrayOf(9.8f, 9.9f, 9f, 9.2f), // bearish FVG: 9.9..10
+            floatArrayOf(9.9f, 10.2f, 9.7f, 9.8f), // full wick fill; close stays below 10
+            floatArrayOf(9.8f, 9.95f, 9.6f, 9.9f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val fvg = result.marks.first { it.tag == SmartIctSuite.Tag.FVG_BEARISH }
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.FVG_FULL_FILL })
+        assertFalse(fvg.invalidated)
+        assertTrue(fvg.note.contains("without invalidation close"))
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.IFVG_BULLISH })
+    }
+
 }
