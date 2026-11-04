@@ -617,16 +617,22 @@ internal object SmartIctSuite {
         val swingLow=lowPivots.lastOrNull { it>=from }
         if(swingHigh!=null && swingLow!=null && swingHigh!=swingLow) {
             val bullish=swingLow<swingHigh
-            val legLow=min(c[swingLow].low,c[swingHigh].low)
-            val legHigh=max(c[swingLow].high,c[swingHigh].high)
+            val legStart=min(swingLow,swingHigh)
+            val legEnd=max(swingLow,swingHigh)
+            val legBars=c.subList(legStart,legEnd+1)
+            // Anchor the retracement to the true extreme of the whole pivot-to-pivot
+            // impulse leg, not merely the two pivot candles' individual ranges.
+            val legLow=if(bullish)c[swingLow].low else legBars.minOf { it.low }
+            val legHigh=if(bullish)legBars.maxOf { it.high } else c[swingHigh].high
             val leg=legHigh-legLow
             if(leg.isFinite() && leg>0f) {
                 val p62=if(bullish)legHigh-leg*0.79f else legLow+leg*0.62f
                 val p79=if(bullish)legHigh-leg*0.62f else legLow+leg*0.79f
                 val tag=if(bullish)Tag.OTE_BULLISH else Tag.OTE_BEARISH
-                o+=m(Tag.OTE,c[swingLow.coerceAtMost(swingHigh)],c.last(),min(p62,p79),max(p62,p79),c.last().time,
-                    "62-79% retracement of latest confirmed "+if(bullish)"bullish" else "bearish"+" swing leg")
-                o+=m(tag,c[swingLow.coerceAtMost(swingHigh)],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                val directionLabel=if(bullish)"bullish" else "bearish"
+                o+=m(Tag.OTE,c[legStart],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                    "62-79% retracement of latest confirmed $directionLabel swing leg")
+                o+=m(tag,c[legStart],c.last(),min(p62,p79),max(p62,p79),c.last().time,
                     "Directional 62-79% OTE anchored to confirmed swing pivots")
                 listOf(0.62f to Tag.FIB_62,0.705f to Tag.FIB_705,0.79f to Tag.FIB_79).forEach { (ratio,fibTag) ->
                     val level=if(bullish)legHigh-leg*ratio else legLow+leg*ratio
