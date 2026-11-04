@@ -435,4 +435,28 @@ class SmartIctSuiteTest {
         assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.IFVG_BULLISH })
     }
 
+    
+    @Test fun oteAndFibAreAnchoredToLatestConfirmedDirectionalSwingLeg() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(9f, 11f, 9f, 10f),
+            floatArrayOf(8f, 10f, 5f, 6f),   // confirmed swing low
+            floatArrayOf(7f, 12f, 7f, 11f),
+            floatArrayOf(11f, 14f, 8f, 13f),
+            floatArrayOf(13f, 16f, 9f, 15f), // impulse swing high
+            floatArrayOf(14f, 15f, 10f, 12f),
+            floatArrayOf(12f, 14f, 11f, 13f),
+            floatArrayOf(13f, 13.5f, 10f, 11f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val ote = result.marks.first { it.tag == SmartIctSuite.Tag.OTE_BULLISH }
+        val fib62 = result.marks.first { it.tag == SmartIctSuite.Tag.FIB_62 }
+        // Swing leg 5..16: bullish OTE is 7.31..9.18; Fib 62 is 9.18.
+        assertTrue(kotlin.math.abs(ote.low - 7.31f) < 0.001f)
+        assertTrue(kotlin.math.abs(ote.high - 9.18f) < 0.001f)
+        assertTrue(kotlin.math.abs(fib62.low - 9.18f) < 0.001f)
+        assertTrue(ote.note.contains("confirmed swing pivots"))
+    }
+
+
 }
