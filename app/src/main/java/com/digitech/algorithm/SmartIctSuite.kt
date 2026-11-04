@@ -504,7 +504,11 @@ internal object SmartIctSuite {
         else if (!cfg.actualSpreadBps.isFinite() || cfg.actualSpreadBps < 0f || cfg.actualSpreadBps > cfg.maxSpreadBps)
             marks += m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread value is invalid or exceeds the configured limit; trade readiness blocked")
         if (cfg.feedState!=FeedState.LIVE || now-feedTime>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
-        val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
+        // A historical London/NY session mark must not authorize a setup now.
+        // Only a session range whose final observed candle is the latest chart candle is active.
+        val sessionOk = !cfg.requireNyOrLondonSession || marks.any {
+            (it.tag == Tag.LONDON_KILL_ZONE || it.tag == Tag.NY_AM_KILL_ZONE) && it.endTime == last.time
+        }
         if (!sessionOk) blockers+="Outside configured London/NY session"
         if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
         else if (bearSweep && bearFvg && bearMss && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
