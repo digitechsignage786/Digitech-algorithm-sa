@@ -157,8 +157,13 @@ internal object SmartIctSuite {
                 val partial=future.firstOrNull { it.low<g.high }
                 val full=future.firstOrNull { it.low<=g.low }
                 val invalid=future.firstOrNull { it.close<g.low }
-                val filled=full!=null
-                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bullish three-candle imbalance",filled)
+                val invalidatedByClose = invalid != null
+                val stateNote = when {
+                    invalidatedByClose -> "Bullish FVG invalidated by close below lower boundary"
+                    full != null -> "Bullish FVG fully filled by wick without invalidation close"
+                    else -> "Bullish three-candle imbalance"
+                }
+                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,stateNote,invalidatedByClose)
                 if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bullish FVG entered but not yet fully filled")
                 if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bullish FVG fully traversed")
                 if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bullish FVG invalidated by close below lower boundary")
@@ -172,8 +177,13 @@ internal object SmartIctSuite {
                 val partial=future.firstOrNull { it.high>g.low }
                 val full=future.firstOrNull { it.high>=g.high }
                 val invalid=future.firstOrNull { it.close>g.high }
-                val filled=full!=null
-                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bearish three-candle imbalance",filled)
+                val invalidatedByClose = invalid != null
+                val stateNote = when {
+                    invalidatedByClose -> "Bearish FVG invalidated by close above upper boundary"
+                    full != null -> "Bearish FVG fully filled by wick without invalidation close"
+                    else -> "Bearish three-candle imbalance"
+                }
+                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,stateNote,invalidatedByClose)
                 if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bearish FVG entered but not yet fully filled")
                 if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bearish FVG fully traversed")
                 if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bearish FVG invalidated by close above upper boundary")
