@@ -435,7 +435,7 @@ internal object SmartIctSuite {
             }
         }
 
-        addRangeMarks(candles,cfg,marks)
+        addRangeMarks(candles,cfg,marks,highs,lows)
         addCalendarSessionMarks(candles,zone,marks)
         addSmtMarks(candles,input.relatedMarkets,marks)
         addMtfMarks(candles,input.timeframes,marks)
@@ -596,8 +596,11 @@ internal object SmartIctSuite {
         }
     }
 
-    private fun addRangeMarks(c:List<Candle>,cfg:Config,o:MutableList<Mark>) {
-        val w=c.takeLast(cfg.dealingRangeLookback.coerceAtLeast(5)); val hi=w.maxOf { it.high }; val lo=w.minOf { it.low }; val eq=(hi+lo)/2f
+    private fun addRangeMarks(c:List<Candle>,cfg:Config,o:MutableList<Mark>,highPivots:List<Int>,lowPivots:List<Int>) {
+        val lookback=cfg.dealingRangeLookback.coerceAtLeast(5)
+        val from=max(0,c.size-lookback)
+        val w=c.drop(from)
+        val hi=w.maxOf { it.high }; val lo=w.minOf { it.low }; val eq=(hi+lo)/2f
         o+=m(Tag.EQUILIBRIUM,w.first(),w.last(),eq,eq,w.last().time,"50% equilibrium")
         o+=m(Tag.PREMIUM,w.first(),w.last(),eq,hi,w.last().time,"Above equilibrium")
         o+=m(Tag.DISCOUNT,w.first(),w.last(),lo,eq,w.last().time,"Below equilibrium")
@@ -607,12 +610,31 @@ internal object SmartIctSuite {
         o+=m(Tag.DRAW_ON_LIQUIDITY_HIGH,w.last(),w.last(),hi,hi,w.last().time,"Upper liquidity target candidate")
         o+=m(Tag.DRAW_ON_LIQUIDITY_LOW,w.last(),w.last(),lo,lo,w.last().time,"Lower liquidity target candidate")
         o+=m(Tag.RANGE_EXPANSION,w.last(),w.last(),lo,hi,w.last().time,"Range window; expansion needs confirmation")
-        o+=m(Tag.OTE,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Generic 62-79% OTE range; use directional OTE marks")
-        o+=m(Tag.OTE_BULLISH,w.first(),w.last(),lo+(hi-lo)*0.21f,lo+(hi-lo)*0.38f,w.last().time,"Bullish 62-79% retracement from range high")
-        o+=m(Tag.OTE_BEARISH,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Bearish 62-79% retracement from range low")
-        o+=m(Tag.FIB_62,w.last(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.62f,w.last().time,"62% retracement reference")
-        o+=m(Tag.FIB_705,w.last(),w.last(),lo+(hi-lo)*0.705f,lo+(hi-lo)*0.705f,w.last().time,"70.5% OTE reference")
-        o+=m(Tag.FIB_79,w.last(),w.last(),lo+(hi-lo)*0.79f,lo+(hi-lo)*0.79f,w.last().time,"79% retracement reference")
+
+        // OTE/Fibonacci must be anchored to the latest confirmed impulse leg,
+        // never to unrelated rolling-window extremes.
+        val swingHigh=highPivots.lastOrNull { it>=from }
+        val swingLow=lowPivots.lastOrNull { it>=from }
+        if(swingHigh!=null && swingLow!=null && swingHigh!=swingLow) {
+            val bullish=swingLow<swingHigh
+            val legLow=min(c[swingLow].low,c[swingHigh].low)
+            val legHigh=max(c[swingLow].high,c[swingHigh].high)
+            val leg=legHigh-legLow
+            if(leg.isFinite() && leg>0f) {
+                val p62=if(bullish)legHigh-leg*0.79f else legLow+leg*0.62f
+                val p79=if(bullish)legHigh-leg*0.62f else legLow+leg*0.79f
+                val tag=if(bullish)Tag.OTE_BULLISH else Tag.OTE_BEARISH
+                o+=m(Tag.OTE,c[swingLow.coerceAtMost(swingHigh)],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                    "62-79% retracement of latest confirmed "+if(bullish)"bullish" else "bearish"+" swing leg")
+                o+=m(tag,c[swingLow.coerceAtMost(swingHigh)],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                    "Directional 62-79% OTE anchored to confirmed swing pivots")
+                listOf(0.62f to Tag.FIB_62,0.705f to Tag.FIB_705,0.79f to Tag.FIB_79).forEach { (ratio,fibTag) ->
+                    val level=if(bullish)legHigh-leg*ratio else legLow+leg*ratio
+                    o+=m(fibTag,c[if(bullish)swingHigh else swingLow],c.last(),level,level,c.last().time,
+                        (ratio*100).toInt().toString()+"% retracement of confirmed swing leg")
+                }
+            }
+        }
     }
 
     private fun addCalendarSessionMarks(c:List<Candle>,zone:ZoneId,o:MutableList<Mark>) {
