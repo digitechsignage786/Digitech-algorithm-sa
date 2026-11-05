@@ -530,7 +530,7 @@ super.onCreate(savedInstanceState)
         streamStatusText.ellipsize = android.text.TextUtils.TruncateAt.END
 
         val signal = TextView(this)
-        signal.text = "Waiting for live market data..."
+        signal.text = "Live market status is shown above."
         signal.textSize = 8f
         signal.setTextColor(Color.WHITE)
         signal.setSingleLine(true)
