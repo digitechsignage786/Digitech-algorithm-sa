@@ -459,4 +459,22 @@ class SmartIctSuiteTest {
     }
 
 
+    @Test fun internalAndExternalRangeLiquidityUseDifferentPriceLevels() {
+        val candles = bars()
+        val result = SmartIctSuite.analyze(
+            SmartIctSuite.Input(candles, config = SmartIctSuite.Config(dealingRangeLookback = 5))
+        )
+        val internal = result.marks.filter { it.tag == SmartIctSuite.Tag.IRL }
+        val external = result.marks.filter { it.tag == SmartIctSuite.Tag.ERL }
+
+        assertTrue("IRL should contain confirmed internal swing levels", internal.isNotEmpty())
+        assertTrue("ERL should contain dealing-range boundary levels", external.size >= 2)
+        assertTrue(internal.all { it.low == it.high })
+        assertTrue(external.all { it.low == it.high })
+        assertTrue(internal.all { it.note.contains("Internal range liquidity") })
+        assertTrue(external.all { it.note.contains("External range") })
+        assertFalse(internal.any { a -> external.any { b -> a.low == b.low && a.high == b.high && a.note == b.note } })
+    }
+
+
 }
