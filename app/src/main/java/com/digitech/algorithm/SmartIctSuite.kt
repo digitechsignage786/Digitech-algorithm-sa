@@ -440,15 +440,33 @@ internal object SmartIctSuite {
         addSmtMarks(candles,input.relatedMarkets,marks)
         addMtfMarks(candles,input.timeframes,marks)
 
-        val last=candles.last(); val recentFrom=candles[max(0,candles.lastIndex-3)].time
-        val bullSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_SELL && it.endTime>=recentFrom }
-        val bearSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_BUY && it.endTime>=recentFrom }
-        val bullFvg=marks.any { it.tag==Tag.FVG_BULLISH && !it.invalidated && it.endTime>=recentFrom }
-        val bearFvg=marks.any { it.tag==Tag.FVG_BEARISH && !it.invalidated && it.endTime>=recentFrom }
-        val bullMss=marks.any { it.tag in setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH) && it.endTime>=candles[max(0,candles.lastIndex-5)].time }
-        val bearMss=marks.any { it.tag in setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH) && it.endTime>=candles[max(0,candles.lastIndex-5)].time }
-        if (bullSweep && bullFvg && bullMss) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-5)],last,candles.takeLast(6).minOf { it.low },last.high,last.time,"Sweep + bullish MSS + FVG candidate")
-        if (bearSweep && bearFvg && bearMss) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-5)],last,last.low,candles.takeLast(6).maxOf { it.high },last.time,"Sweep + bearish MSS + FVG candidate")
+        val last=candles.last()
+        // A valid setup may unfold over several candles. Keep a bounded 12-bar
+        // window, but enforce the ICT event order instead of merely requiring
+        // three unrelated tags to coexist near the latest candle.
+        val setupWindowFrom=candles[max(0,candles.lastIndex-11)].time
+        fun orderedSetup(sweepTag:Tag,mssTags:Set<Tag>,displacementTag:Tag,fvgTag:Tag):Boolean {
+            val sweep=marks.filter { it.tag==sweepTag && it.confirmedAt>=setupWindowFrom }
+                .maxByOrNull { it.confirmedAt } ?: return false
+            val mss=marks.filter { it.tag in mssTags && it.confirmedAt>=sweep.confirmedAt }
+                .minByOrNull { it.confirmedAt } ?: return false
+            val displacement=marks.filter { it.tag==displacementTag && it.confirmedAt>=mss.confirmedAt }
+                .minByOrNull { it.confirmedAt } ?: return false
+            return marks.any { it.tag==fvgTag && !it.invalidated &&
+                it.confirmedAt>=displacement.confirmedAt && it.confirmedAt>=setupWindowFrom }
+        }
+        val bullSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_SELL && it.confirmedAt>=setupWindowFrom }
+        val bearSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_BUY && it.confirmedAt>=setupWindowFrom }
+        val bullFvg=marks.any { it.tag==Tag.FVG_BULLISH && !it.invalidated && it.confirmedAt>=setupWindowFrom }
+        val bearFvg=marks.any { it.tag==Tag.FVG_BEARISH && !it.invalidated && it.confirmedAt>=setupWindowFrom }
+        val bullMss=marks.any { it.tag in setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH) && it.confirmedAt>=setupWindowFrom }
+        val bearMss=marks.any { it.tag in setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH) && it.confirmedAt>=setupWindowFrom }
+        val bullDisplacement=marks.any { it.tag==Tag.DISPLACEMENT_BULLISH && it.confirmedAt>=setupWindowFrom }
+        val bearDisplacement=marks.any { it.tag==Tag.DISPLACEMENT_BEARISH && it.confirmedAt>=setupWindowFrom }
+        val bullSetup=orderedSetup(Tag.LIQUIDITY_SWEEP_SELL,setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH),Tag.DISPLACEMENT_BULLISH,Tag.FVG_BULLISH)
+        val bearSetup=orderedSetup(Tag.LIQUIDITY_SWEEP_BUY,setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH),Tag.DISPLACEMENT_BEARISH,Tag.FVG_BEARISH)
+        if (bullSetup) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-11)],last,candles.takeLast(12).minOf { it.low },last.high,last.time,"Ordered bullish Sweep + MSS/CHoCH + displacement + FVG")
+        if (bearSetup) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-11)],last,last.low,candles.takeLast(12).maxOf { it.high },last.time,"Ordered bearish Sweep + MSS/CHoCH + displacement + FVG")
 
         val local=Instant.ofEpochMilli(last.time).atZone(zone).toLocalTime()
         val minute=local.hour*60+local.minute
@@ -510,9 +528,21 @@ internal object SmartIctSuite {
             (it.tag == Tag.LONDON_KILL_ZONE || it.tag == Tag.NY_AM_KILL_ZONE) && it.endTime == last.time
         }
         if (!sessionOk) blockers+="Outside configured London/NY session"
-        if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
-        else if (bearSweep && bearFvg && bearMss && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
-        else if (bullSweep||bearSweep) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,blockers.firstOrNull() ?: "Signal confirmations are incomplete")
+        if (bullSetup && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
+        else if (bearSetup && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
+        if (signals.isEmpty()) {
+            val missing=mutableListOf<String>()
+            if (!(bullSweep||bearSweep)) missing+="liquidity sweep"
+            if (!(bullMss||bearMss)) missing+="MSS/CHoCH"
+            if (!(bullDisplacement||bearDisplacement)) missing+="displacement"
+            if (!(bullFvg||bearFvg)) missing+="valid FVG"
+            val detail=when {
+                blockers.isNotEmpty() -> blockers.joinToString("; ")
+                missing.isNotEmpty() -> "Waiting for: "+missing.joinToString(" + ")
+                else -> "ICT phases detected but not in the required same-direction sequence within 12 candles"
+            }
+            marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,detail)
+        }
         signals.lastOrNull()?.let { s ->
             marks+=m(if(s.bullish)Tag.BUY_SETUP else Tag.SELL_SETUP,last,last,min(s.entry,s.stopLoss),max(s.entry,s.stopLoss),last.time,s.reasons.joinToString(" + "))
             if (!s.tradeFiltersPassed) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,"Analytical setup only: current spread and/or complete news calendar is missing")
