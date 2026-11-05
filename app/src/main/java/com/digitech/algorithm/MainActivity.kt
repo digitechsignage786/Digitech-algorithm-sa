@@ -1100,12 +1100,12 @@ super.onCreate(savedInstanceState)
 
         val workerUrl = BuildConfig.MARKET_DATA_WORKER_URL.trim().trimEnd('/')
 
-        if (!workerUrl.startsWith("https://", ignoreCase = true)) {
+        val gatewayConfigured = workerUrl.startsWith("https://", ignoreCase = true)
+        if (!gatewayConfigured) {
             statusText.text = "GATEWAY NOT SET"
             statusText.setTextColor(Color.RED)
-            streamStatusText.text = "MARKET DATA GATEWAY NOT CONFIGURED"
+            streamStatusText.text = "CACHED HISTORY ONLY — GATEWAY NOT CONFIGURED"
             streamStatusText.setTextColor(Color.RED)
-            return
         }
 
         thread(name = "HistoricalLoader") {
@@ -1137,7 +1137,7 @@ super.onCreate(savedInstanceState)
                 val intervalForCacheValidation = intervalMillis(selectedTimeframe)
                 var rawCandles: List<Candle>? = cachedClosed
                     ?.takeIf { isHistoricalSnapshotTimeAligned(it, intervalForCacheValidation) }
-                if (rawCandles == null) {
+                if (rawCandles == null && gatewayConfigured) {
                     repeat(2) { attempt ->
                         if (rawCandles != null) return@repeat
                         try {
@@ -1210,8 +1210,17 @@ super.onCreate(savedInstanceState)
 
                 // Never start the live stream while the locked market-closed
                 // gate is active. Historical candles remain available.
-                if (!isMarketClosedNow()) {
+                if (!isMarketClosedNow() && gatewayConfigured) {
                     connectLivePriceStream(workerUrl, serial)
+                } else if (!isMarketClosedNow()) {
+                    runOnUiThread {
+                        if (serial == requestSerial && !isFinishing && !isDestroyed) {
+                            statusText.text = "CACHED HISTORY"
+                            statusText.setTextColor(Color.YELLOW)
+                            streamStatusText.text = "GATEWAY NOT SET — LIVE FEED DISABLED"
+                            streamStatusText.setTextColor(Color.YELLOW)
+                        }
+                    }
                 } else {
                     runOnUiThread {
                         if (serial == requestSerial && !isFinishing && !isDestroyed) {
@@ -1249,7 +1258,7 @@ super.onCreate(savedInstanceState)
                     streamStatusText.setTextColor(Color.YELLOW)
                 }
 
-                if (!isMarketClosedNow()) {
+                if (!isMarketClosedNow() && gatewayConfigured) {
                     val retryWorkerUrl = BuildConfig.MARKET_DATA_WORKER_URL.trim().trimEnd('/')
                     if (retryWorkerUrl.startsWith("https://", ignoreCase = true) && serial == requestSerial) {
                         websocketStop = false
