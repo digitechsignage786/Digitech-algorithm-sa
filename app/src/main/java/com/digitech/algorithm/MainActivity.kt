@@ -106,9 +106,9 @@ class MainActivity : AppCompatActivity() {
                         streamStatusText.setTextColor(Color.rgb(30, 200, 140))
                     }
                 }
-                val resumeKey = BuildConfig.TWELVE_DATA_API_KEY
-                if (resumeKey.isNotBlank()) {
-                    connectLivePriceStream(resumeKey, requestSerial)
+                val resumeWorkerUrl = BuildConfig.MARKET_DATA_WORKER_URL.trim().trimEnd('/')
+                if (resumeWorkerUrl.startsWith("https://", ignoreCase = true)) {
+                    connectLivePriceStream(resumeWorkerUrl, requestSerial)
                 }
             }
             lastMarketClosedState = marketClosed
@@ -530,7 +530,7 @@ super.onCreate(savedInstanceState)
         streamStatusText.ellipsize = android.text.TextUtils.TruncateAt.END
 
         val signal = TextView(this)
-        signal.text = "Waiting for live market data..."
+        signal.text = "Live market status is shown above."
         signal.textSize = 8f
         signal.setTextColor(Color.WHITE)
         signal.setSingleLine(true)
@@ -1098,14 +1098,14 @@ super.onCreate(savedInstanceState)
         streamStatusText.text = "WEBSOCKET: CONNECTING"
         streamStatusText.setTextColor(Color.YELLOW)
 
-        val apiKey = BuildConfig.TWELVE_DATA_API_KEY
+        val workerUrl = BuildConfig.MARKET_DATA_WORKER_URL.trim().trimEnd('/')
 
-        if (apiKey.isBlank()) {
-            statusText.text = "NO KEY"
+        val gatewayConfigured = workerUrl.startsWith("https://", ignoreCase = true)
+        if (!gatewayConfigured) {
+            statusText.text = "GATEWAY NOT SET"
             statusText.setTextColor(Color.RED)
-            streamStatusText.text = "WEBSOCKET: NO API KEY"
+            streamStatusText.text = "CACHED HISTORY ONLY — GATEWAY NOT CONFIGURED"
             streamStatusText.setTextColor(Color.RED)
-            return
         }
 
         thread(name = "HistoricalLoader") {
@@ -1137,12 +1137,12 @@ super.onCreate(savedInstanceState)
                 val intervalForCacheValidation = intervalMillis(selectedTimeframe)
                 var rawCandles: List<Candle>? = cachedClosed
                     ?.takeIf { isHistoricalSnapshotTimeAligned(it, intervalForCacheValidation) }
-                if (rawCandles == null) {
+                if (rawCandles == null && gatewayConfigured) {
                     repeat(2) { attempt ->
                         if (rawCandles != null) return@repeat
                         try {
                             rawCandles = fetchHistoricalCandles(
-                                apiKey = apiKey,
+                                workerUrl = workerUrl,
                                 outputSize = 5000
                             )
                         } catch (_: Exception) {
@@ -1210,8 +1210,17 @@ super.onCreate(savedInstanceState)
 
                 // Never start the live stream while the locked market-closed
                 // gate is active. Historical candles remain available.
-                if (!isMarketClosedNow()) {
-                    connectLivePriceStream(apiKey, serial)
+                if (!isMarketClosedNow() && gatewayConfigured) {
+                    connectLivePriceStream(workerUrl, serial)
+                } else if (!isMarketClosedNow()) {
+                    runOnUiThread {
+                        if (serial == requestSerial && !isFinishing && !isDestroyed) {
+                            statusText.text = "CACHED HISTORY"
+                            statusText.setTextColor(Color.YELLOW)
+                            streamStatusText.text = "GATEWAY NOT SET — LIVE FEED DISABLED"
+                            streamStatusText.setTextColor(Color.YELLOW)
+                        }
+                    }
                 } else {
                     runOnUiThread {
                         if (serial == requestSerial && !isFinishing && !isDestroyed) {
@@ -1249,11 +1258,11 @@ super.onCreate(savedInstanceState)
                     streamStatusText.setTextColor(Color.YELLOW)
                 }
 
-                if (!isMarketClosedNow()) {
-                    val retryKey = BuildConfig.TWELVE_DATA_API_KEY
-                    if (retryKey.isNotBlank() && serial == requestSerial) {
+                if (!isMarketClosedNow() && gatewayConfigured) {
+                    val retryWorkerUrl = BuildConfig.MARKET_DATA_WORKER_URL.trim().trimEnd('/')
+                    if (retryWorkerUrl.startsWith("https://", ignoreCase = true) && serial == requestSerial) {
                         websocketStop = false
-                        connectLivePriceStream(retryKey, serial)
+                        connectLivePriceStream(retryWorkerUrl, serial)
                     }
                 }
             }
@@ -1407,7 +1416,7 @@ super.onCreate(savedInstanceState)
     }
 
     private fun fetchHistoricalCandles(
-        apiKey: String,
+        workerUrl: String,
         outputSize: Int
     ): List<Candle> {
         var connection: HttpURLConnection? = null
@@ -1417,17 +1426,11 @@ super.onCreate(savedInstanceState)
             val interval = intervalFor(selectedTimeframe)
 
             val encodedSymbol = URLEncoder.encode(symbol, "UTF-8")
-            val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
-
             val urlString =
-                "https://api.twelvedata.com/time_series" +
+                "$workerUrl/time_series" +
                         "?symbol=$encodedSymbol" +
                         "&interval=$interval" +
-                        "&outputsize=$outputSize" +
-                        // Twelve Data intraday Forex timestamps are UTC. Keep
-                        // history in the same epoch timezone as WebSocket ticks.
-                        "&timezone=UTC" +
-                        "&apikey=$encodedKey"
+                        "&outputsize=$outputSize"
 
             connection = URL(urlString)
                 .openConnection() as HttpURLConnection
@@ -1513,16 +1516,18 @@ super.onCreate(savedInstanceState)
     }
 
     private fun connectLivePriceStream(
-        apiKey: String,
+        workerUrl: String,
         serial: Int
     ) {
         if (serial != requestSerial) return
 
         websocketStop = false
 
-        val encodedKey = URLEncoder.encode(apiKey, "UTF-8")
+        val websocketBase = workerUrl
+            .replaceFirst(Regex("^https://", RegexOption.IGNORE_CASE), "wss://")
+            .replaceFirst(Regex("^http://", RegexOption.IGNORE_CASE), "ws://")
         val request = Request.Builder()
-            .url("wss://ws.twelvedata.com/v1/quotes/price?apikey=$encodedKey")
+            .url("$websocketBase/ws")
             .build()
 
         marketWebSocket = httpClient.newWebSocket(
@@ -1597,7 +1602,7 @@ super.onCreate(savedInstanceState)
                         }
                     }
 
-                    scheduleLiveReconnect(apiKey, serial)
+                    scheduleLiveReconnect(workerUrl, serial)
                 }
 
                 override fun onClosed(
@@ -1616,14 +1621,14 @@ super.onCreate(savedInstanceState)
                         }
                     }
 
-                    scheduleLiveReconnect(apiKey, serial)
+                    scheduleLiveReconnect(workerUrl, serial)
                 }
             }
         )
     }
 
     private fun scheduleLiveReconnect(
-        apiKey: String,
+        workerUrl: String,
         serial: Int
     ) {
         if (serial != requestSerial || websocketStop || reconnectInProgress) return
@@ -1642,7 +1647,7 @@ super.onCreate(savedInstanceState)
                             streamStatusText.setTextColor(Color.YELLOW)
                         }
                     }
-                    connectLivePriceStream(apiKey, serial)
+                    connectLivePriceStream(workerUrl, serial)
                 }
             } catch (_: InterruptedException) {
                 // Stream was intentionally stopped or replaced.

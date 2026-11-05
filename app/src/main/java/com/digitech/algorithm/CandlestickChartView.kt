@@ -433,7 +433,8 @@ class CandlestickChartView(context: Context) : View(context) {
             drawCandles(canvas)
             // ICT structure overlays: confirmed pivots only, directly on the main chart.
             drawIctStructureOverlays(canvas)
-            drawSmartIctEngineOverlays(canvas)
+            // The SmartIctSuite renderer is the single owner of Smart ICT overlays.
+            // Do not draw the legacy engine layer here: it duplicates BOS/FVG/OB/EQ marks.
             drawSmartIctSuiteOverlays(canvas)
             drawCurrentPrice(canvas)
             drawPriceScale(canvas)
@@ -1112,10 +1113,12 @@ class CandlestickChartView(context: Context) : View(context) {
         }
     }
 
-    // Additional Smart ICT marks are cached by candle fingerprint so a redraw does not
-    // rerun the full analysis on every animation frame. This renderer is additive only.
+    // Smart ICT analysis is deliberately kept off Android's UI/render thread.
+    // A single in-flight worker coalesces rapid live ticks; only results matching
+    // the latest candle fingerprint are published back to the chart.
     private var smartIctSuiteCacheKey: String = ""
     private var smartIctSuiteCache: SmartIctSuite.Result? = null
+    private var smartIctSuiteAnalysisInFlight: Boolean = false
 
     private fun drawSmartIctSuiteOverlays(canvas: Canvas) {
         if (candles.size < 5) return
@@ -1126,24 +1129,52 @@ class CandlestickChartView(context: Context) : View(context) {
         val fingerprint = candles.size.toString() + ":" + candles.first().time + ":" +
             last.time + ":" + last.open + ":" + last.high + ":" + last.low + ":" + last.close +
             ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + feedState.name
-        var result = smartIctSuiteCache
-        if (result == null || fingerprint != smartIctSuiteCacheKey) {
-            val frames = buildSmartIctTimeframeContext()
+        if (fingerprint != smartIctSuiteCacheKey && !smartIctSuiteAnalysisInFlight) {
+            smartIctSuiteAnalysisInFlight = true
+            val candleSnapshot = candles.toList()
+            val symbolSnapshot = liveSymbol
+            val intervalSnapshot = lastCandleIntervalMillis
+            val feedTimeSnapshot = liveTickTimeMillis
+            val framesSnapshot = buildSmartIctTimeframeContext()
             val config = SmartIctSuite.Config(
                 nowMillis = nowMillis,
                 feedState = feedState,
                 maxDataAgeMillis = 120_000L,
-                latestFeedTimeMillis = liveTickTimeMillis
+                latestFeedTimeMillis = feedTimeSnapshot
             )
-            result = SmartIctSuite.analyze(SmartIctSuite.Input(
-                candles = candles.toList(),
-                symbol = liveSymbol,
-                timeframes = frames,
-                config = config
-            ))
-            smartIctSuiteCacheKey = fingerprint
-            smartIctSuiteCache = result
+            Thread({
+                val computed = runCatching {
+                    SmartIctSuite.analyze(SmartIctSuite.Input(
+                        candles = candleSnapshot,
+                        symbol = symbolSnapshot,
+                        timeframes = framesSnapshot,
+                        config = config
+                    ))
+                }.getOrNull()
+                post {
+                    smartIctSuiteAnalysisInFlight = false
+                    val currentLast = candles.lastOrNull()
+                    val currentNow = System.currentTimeMillis()
+                    val currentFeedState = if (liveTickTimeMillis > 0L &&
+                        currentNow - liveTickTimeMillis <= 120_000L)
+                        SmartIctSuite.FeedState.LIVE else SmartIctSuite.FeedState.STALE
+                    val currentFingerprint = if (currentLast == null || candles.isEmpty()) "" else
+                        candles.size.toString() + ":" + candles.first().time + ":" +
+                            currentLast.time + ":" + currentLast.open + ":" + currentLast.high +
+                            ":" + currentLast.low + ":" + currentLast.close +
+                            ":" + lastCandleIntervalMillis + ":" + liveSymbol + ":" + currentFeedState.name
+                    if (currentFingerprint == fingerprint) {
+                        smartIctSuiteCacheKey = fingerprint
+                        smartIctSuiteCache = computed
+                    }
+                    invalidate()
+                }
+            }, "SmartIctAnalysis").apply {
+                isDaemon = true
+                start()
+            }
         }
+        val result = smartIctSuiteCache ?: return
         val range = visibleRange()
         val highest = range.first
         val lowest = range.second
@@ -1240,6 +1271,20 @@ class CandlestickChartView(context: Context) : View(context) {
         // filters below still limit output to recent/price-relevant marks and cap
         // visible overlays, preventing the chart from being flooded with history.
         val displayTags = SmartIctSuite.Tag.values().toSet()
+        // These structure concepts already have dedicated, confirmed-pivot
+        // renderers in drawIctStructureOverlays(). Exclude them from this
+        // additive suite layer so the same BOS/EQ/liquidity/swing level is
+        // never painted twice on the chart.
+        val structureOwnedTags = setOf(
+            SmartIctSuite.Tag.BOS_BULLISH, SmartIctSuite.Tag.BOS_BEARISH,
+            SmartIctSuite.Tag.SWING_HIGH, SmartIctSuite.Tag.SWING_LOW,
+            SmartIctSuite.Tag.HH, SmartIctSuite.Tag.HL,
+            SmartIctSuite.Tag.LH, SmartIctSuite.Tag.LL,
+            SmartIctSuite.Tag.BSL, SmartIctSuite.Tag.SSL,
+            SmartIctSuite.Tag.EQH, SmartIctSuite.Tag.EQL,
+            SmartIctSuite.Tag.PREMIUM, SmartIctSuite.Tag.DISCOUNT,
+            SmartIctSuite.Tag.EQUILIBRIUM, SmartIctSuite.Tag.CE_50
+        )
         // Automatic ICT visibility: no manual per-concept switches. Keep active,
         // recent, or price-relevant concepts; hide resolved stale zones so the
         // chart stays readable. This only filters the additive ICT overlay.
@@ -1250,7 +1295,8 @@ class CandlestickChartView(context: Context) : View(context) {
         val levelLikeTags = levelTags
         val visible = result.marks
             .filter { mark ->
-                if (mark.tag !in displayTags || mark.endTime < visibleStart || mark.startTime > visibleEnd) {
+                if (mark.tag !in displayTags || mark.tag in structureOwnedTags ||
+                    mark.endTime < visibleStart || mark.startTime > visibleEnd) {
                     false
                 } else if (mark.tag in zoneTags) {
                     // Zones are context overlays, not full-history backgrounds.
@@ -1259,8 +1305,10 @@ class CandlestickChartView(context: Context) : View(context) {
                     // across the entire chart after a redraw.
                     val zoneHeight = abs(mark.high - mark.low)
                     val recentZone = mark.endTime >= recentCutoff
+                    val nearPrice = lastPrice >= mark.low - visiblePriceBand &&
+                        lastPrice <= mark.high + visiblePriceBand
                     zoneHeight.isFinite() && zoneHeight > 0f &&
-                        zoneHeight <= span * 0.12f && recentZone
+                        zoneHeight <= span * 0.12f && recentZone && nearPrice
                 } else {
                     true
                 }
@@ -1281,9 +1329,12 @@ class CandlestickChartView(context: Context) : View(context) {
                             event.tag == SmartIctSuite.Tag.NEWS_WARNING ||
                             event.tag == SmartIctSuite.Tag.SPREAD_WARNING ||
                             event.tag == SmartIctSuite.Tag.STALE_DATA_WARNING -> true
-                        resolvedState -> recent
-                        isLevel -> nearPrice || recent
-                        else -> nearPrice || recent
+                        // Filled/invalidated zones are historical context, not active setups.
+                        resolvedState -> recent && nearPrice
+                        // Structural levels and signals appear only when close enough
+                        // to the current market price to matter on this chart view.
+                        isLevel -> nearPrice
+                        else -> nearPrice
                     }
                 }
             }
@@ -1307,8 +1358,11 @@ class CandlestickChartView(context: Context) : View(context) {
                     }
                 }.thenByDescending { it.endTime }
             )
-            // Fewer simultaneous annotations improve readability on phone screens.
-            .take(4)
+            // Keep automatic visibility, but do not hide most active ICT families
+            // behind an overly restrictive four-mark cap. The relevance and
+            // per-tag newest-event filters above remain in force; this higher
+            // ceiling is only a final mobile readability guard.
+            .take(12)
         for (event in visible) {
             val bullish = event.tag in setOf(
                 SmartIctSuite.Tag.IFVG_BULLISH, SmartIctSuite.Tag.BREAKER_BULLISH,
@@ -1371,6 +1425,69 @@ class CandlestickChartView(context: Context) : View(context) {
                     (y - 3f).coerceIn(top + 10f, bottom), label, preferAbove = true
                 )
             }
+        }
+        drawSmartIctSignalPanel(canvas, result)
+    }
+
+    // Compact signal status is drawn inside the main chart, never in a separate panel.
+    // Missing feed/news/spread confirmation fails closed to NO TRADE.
+    private fun drawSmartIctSignalPanel(canvas: Canvas, result: SmartIctSuite.Result) {
+        val signal = result.signals.lastOrNull()
+        val tradeAllowed = signal?.tradeFiltersPassed == true
+        val status = if (tradeAllowed) {
+            if (signal!!.bullish) "BUY" else "SELL"
+        } else "NO TRADE"
+        val reason = if (signal != null && !tradeAllowed) {
+            "Filters incomplete: spread/news"
+        } else if (signal == null) {
+            result.marks.lastOrNull { it.tag == SmartIctSuite.Tag.NO_TRADE }?.note
+                ?: result.marks.lastOrNull { it.tag == SmartIctSuite.Tag.STALE_DATA_WARNING }?.note
+                ?: "Waiting: liquidity sweep + MSS + FVG"
+        } else "ICT confirmations passed"
+
+        val left = chartLeft() + 7f
+        val top = chartTop() + 7f
+        val width = min(204f, (chartRight() - chartLeft() - 14f).coerceAtLeast(120f))
+        val rowHeight = 13f
+        val height = if (signal == null) 42f else 68f
+        val panel = RectF(left, top, left + width, top + height)
+        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(18, 23, 31)
+            alpha = 232
+            style = Paint.Style.FILL
+        }
+        val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (tradeAllowed) Color.rgb(35, 195, 145) else Color.rgb(210, 160, 65)
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f
+        }
+        canvas.drawRoundRect(panel, 6f, 6f, background)
+        canvas.drawRoundRect(panel, 6f, 6f, border)
+
+        val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (tradeAllowed && signal!!.bullish) Color.rgb(35, 210, 150)
+                else if (tradeAllowed) Color.rgb(240, 85, 100)
+                else Color.rgb(245, 190, 80)
+            textSize = 11f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 9f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        }
+        canvas.drawText("ICT SIGNAL  $status", left + 7f, top + 14f, title)
+        canvas.drawText(reason.take(34), left + 7f, top + 27f, body)
+        if (signal != null) {
+            val prefix = if (tradeAllowed) "" else "CANDIDATE "
+            canvas.drawText(prefix + "E " + String.format(java.util.Locale.US, "%.5f", signal.entry) +
+                "  SL " + String.format(java.util.Locale.US, "%.5f", signal.stopLoss),
+                left + 7f, top + 40f, body)
+            canvas.drawText("TP1 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit1) +
+                "  TP2 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit2) +
+                "  TP3 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit3),
+                left + 7f, top + 53f, body)
+            if (!tradeAllowed) canvas.drawText("Not cleared for execution", left + 7f, top + 65f, title)
         }
     }
 

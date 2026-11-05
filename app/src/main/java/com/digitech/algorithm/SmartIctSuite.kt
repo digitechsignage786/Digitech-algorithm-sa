@@ -157,8 +157,13 @@ internal object SmartIctSuite {
                 val partial=future.firstOrNull { it.low<g.high }
                 val full=future.firstOrNull { it.low<=g.low }
                 val invalid=future.firstOrNull { it.close<g.low }
-                val filled=full!=null
-                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bullish three-candle imbalance",filled)
+                val invalidatedByClose = invalid != null
+                val stateNote = when {
+                    invalidatedByClose -> "Bullish FVG invalidated by close below lower boundary"
+                    full != null -> "Bullish FVG fully filled by wick without invalidation close"
+                    else -> "Bullish three-candle imbalance"
+                }
+                marks+=m(Tag.FVG_BULLISH,a,c,g.low,g.high,c.time,stateNote,invalidatedByClose)
                 if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bullish FVG entered but not yet fully filled")
                 if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bullish FVG fully traversed")
                 if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bullish FVG invalidated by close below lower boundary")
@@ -172,8 +177,13 @@ internal object SmartIctSuite {
                 val partial=future.firstOrNull { it.high>g.low }
                 val full=future.firstOrNull { it.high>=g.high }
                 val invalid=future.firstOrNull { it.close>g.high }
-                val filled=full!=null
-                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,if(filled)"Fully filled later" else "Bearish three-candle imbalance",filled)
+                val invalidatedByClose = invalid != null
+                val stateNote = when {
+                    invalidatedByClose -> "Bearish FVG invalidated by close above upper boundary"
+                    full != null -> "Bearish FVG fully filled by wick without invalidation close"
+                    else -> "Bearish three-candle imbalance"
+                }
+                marks+=m(Tag.FVG_BEARISH,a,c,g.low,g.high,c.time,stateNote,invalidatedByClose)
                 if(partial!=null && (full==null || partial.time<full.time)) marks+=m(Tag.FVG_PARTIAL_FILL,a,partial,g.low,g.high,partial.time,"Bearish FVG entered but not yet fully filled")
                 if(full!=null) marks+=m(Tag.FVG_FULL_FILL,a,full,g.low,g.high,full.time,"Bearish FVG fully traversed")
                 if(invalid!=null) marks+=m(Tag.FVG_INVALIDATED,a,invalid,g.low,g.high,invalid.time,"Bearish FVG invalidated by close above upper boundary")
@@ -425,20 +435,38 @@ internal object SmartIctSuite {
             }
         }
 
-        addRangeMarks(candles,cfg,marks)
+        addRangeMarks(candles,cfg,marks,highs,lows)
         addCalendarSessionMarks(candles,zone,marks)
         addSmtMarks(candles,input.relatedMarkets,marks)
-        addMtfMarks(input.timeframes,marks)
+        addMtfMarks(candles,input.timeframes,marks)
 
-        val last=candles.last(); val recentFrom=candles[max(0,candles.lastIndex-3)].time
-        val bullSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_SELL && it.endTime>=recentFrom }
-        val bearSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_BUY && it.endTime>=recentFrom }
-        val bullFvg=marks.any { it.tag==Tag.FVG_BULLISH && !it.invalidated && it.endTime>=recentFrom }
-        val bearFvg=marks.any { it.tag==Tag.FVG_BEARISH && !it.invalidated && it.endTime>=recentFrom }
-        val bullMss=marks.any { it.tag in setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH) && it.endTime>=candles[max(0,candles.lastIndex-5)].time }
-        val bearMss=marks.any { it.tag in setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH) && it.endTime>=candles[max(0,candles.lastIndex-5)].time }
-        if (bullSweep && bullFvg && bullMss) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-5)],last,candles.takeLast(6).minOf { it.low },last.high,last.time,"Sweep + bullish MSS + FVG candidate")
-        if (bearSweep && bearFvg && bearMss) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-5)],last,last.low,candles.takeLast(6).maxOf { it.high },last.time,"Sweep + bearish MSS + FVG candidate")
+        val last=candles.last()
+        // A valid setup may unfold over several candles. Keep a bounded 12-bar
+        // window, but enforce the ICT event order instead of merely requiring
+        // three unrelated tags to coexist near the latest candle.
+        val setupWindowFrom=candles[max(0,candles.lastIndex-11)].time
+        fun orderedSetup(sweepTag:Tag,mssTags:Set<Tag>,displacementTag:Tag,fvgTag:Tag):Boolean {
+            val sweep=marks.filter { it.tag==sweepTag && it.confirmedAt>=setupWindowFrom }
+                .maxByOrNull { it.confirmedAt } ?: return false
+            val mss=marks.filter { it.tag in mssTags && it.confirmedAt>=sweep.confirmedAt }
+                .minByOrNull { it.confirmedAt } ?: return false
+            val displacement=marks.filter { it.tag==displacementTag && it.confirmedAt>=mss.confirmedAt }
+                .minByOrNull { it.confirmedAt } ?: return false
+            return marks.any { it.tag==fvgTag && !it.invalidated &&
+                it.confirmedAt>=displacement.confirmedAt && it.confirmedAt>=setupWindowFrom }
+        }
+        val bullSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_SELL && it.confirmedAt>=setupWindowFrom }
+        val bearSweep=marks.any { it.tag==Tag.LIQUIDITY_SWEEP_BUY && it.confirmedAt>=setupWindowFrom }
+        val bullFvg=marks.any { it.tag==Tag.FVG_BULLISH && !it.invalidated && it.confirmedAt>=setupWindowFrom }
+        val bearFvg=marks.any { it.tag==Tag.FVG_BEARISH && !it.invalidated && it.confirmedAt>=setupWindowFrom }
+        val bullMss=marks.any { it.tag in setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH) && it.confirmedAt>=setupWindowFrom }
+        val bearMss=marks.any { it.tag in setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH) && it.confirmedAt>=setupWindowFrom }
+        val bullDisplacement=marks.any { it.tag==Tag.DISPLACEMENT_BULLISH && it.confirmedAt>=setupWindowFrom }
+        val bearDisplacement=marks.any { it.tag==Tag.DISPLACEMENT_BEARISH && it.confirmedAt>=setupWindowFrom }
+        val bullSetup=orderedSetup(Tag.LIQUIDITY_SWEEP_SELL,setOf(Tag.MSS_BULLISH,Tag.CHOCH_BULLISH),Tag.DISPLACEMENT_BULLISH,Tag.FVG_BULLISH)
+        val bearSetup=orderedSetup(Tag.LIQUIDITY_SWEEP_BUY,setOf(Tag.MSS_BEARISH,Tag.CHOCH_BEARISH),Tag.DISPLACEMENT_BEARISH,Tag.FVG_BEARISH)
+        if (bullSetup) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-11)],last,candles.takeLast(12).minOf { it.low },last.high,last.time,"Ordered bullish Sweep + MSS/CHoCH + displacement + FVG")
+        if (bearSetup) marks+=m(Tag.ICT_2022_MODEL,candles[max(0,candles.lastIndex-11)],last,last.low,candles.takeLast(12).maxOf { it.high },last.time,"Ordered bearish Sweep + MSS/CHoCH + displacement + FVG")
 
         val local=Instant.ofEpochMilli(last.time).atZone(zone).toLocalTime()
         val minute=local.hour*60+local.minute
@@ -481,7 +509,7 @@ internal object SmartIctSuite {
         if (cfg.dailyLossPercent>=cfg.dailyLossLimitPercent) blockers+="Daily loss limit reached"
         val atrPercent=atr.last()/abs(last.close).coerceAtLeast(0.0000001f)*100f
         if (atrPercent>cfg.maxAtrPercent) blockers+="ATR volatility exceeds configured maximum"
-        val spreadReady=cfg.actualSpreadBps!=null && cfg.actualSpreadBps<=cfg.maxSpreadBps
+        val spreadReady=cfg.actualSpreadBps?.let { it.isFinite() && it >= 0f && it <= cfg.maxSpreadBps } == true
         val tradeFiltersReady=spreadReady && cfg.newsCalendarComplete
         val currencies=currenciesFor(input.symbol)
         val hotNews=input.news.filter { it.impact==Impact.HIGH && it.currency.uppercase() in currencies &&
@@ -490,14 +518,31 @@ internal object SmartIctSuite {
             blockers+="High-impact news in configured no-trade window"
             marks+=m(Tag.NEWS_WARNING,last,last,last.low,last.high,last.time,"High impact: " + hotNews.joinToString { it.title.ifBlank { it.currency } })
         }
-        if (cfg.actualSpreadBps==null) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread source unavailable; analytical signal cannot pass execution filters")
-        else if (cfg.actualSpreadBps>cfg.maxSpreadBps) marks+=m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread gate blocked setup")
+        if (cfg.actualSpreadBps == null) marks += m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread source unavailable; analytical signal cannot pass execution filters")
+        else if (!cfg.actualSpreadBps.isFinite() || cfg.actualSpreadBps < 0f || cfg.actualSpreadBps > cfg.maxSpreadBps)
+            marks += m(Tag.SPREAD_WARNING,last,last,last.low,last.high,last.time,"Spread value is invalid or exceeds the configured limit; trade readiness blocked")
         if (cfg.feedState!=FeedState.LIVE || now-feedTime>cfg.maxDataAgeMillis) marks+=m(Tag.STALE_DATA_WARNING,last,last,last.low,last.high,last.time,"Feed freshness/state gate blocked setup")
-        val sessionOk=!cfg.requireNyOrLondonSession || marks.any { it.tag==Tag.LONDON_KILL_ZONE || it.tag==Tag.NY_AM_KILL_ZONE }
+        // A historical London/NY session mark must not authorize a setup now.
+        // Only a session range whose final observed candle is the latest chart candle is active.
+        val sessionOk = !cfg.requireNyOrLondonSession || marks.any {
+            (it.tag == Tag.LONDON_KILL_ZONE || it.tag == Tag.NY_AM_KILL_ZONE) && it.endTime == last.time
+        }
         if (!sessionOk) blockers+="Outside configured London/NY session"
-        if (bullSweep && bullFvg && bullMss && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
-        else if (bearSweep && bearFvg && bearMss && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
-        else if (bullSweep||bearSweep) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,blockers.firstOrNull() ?: "Signal confirmations are incomplete")
+        if (bullSetup && blockers.isEmpty()) signal(true,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
+        else if (bearSetup && blockers.isEmpty()) signal(false,candles,marks,cfg,tradeFiltersReady)?.let { signals+=it }
+        if (signals.isEmpty()) {
+            val missing=mutableListOf<String>()
+            if (!(bullSweep||bearSweep)) missing+="liquidity sweep"
+            if (!(bullMss||bearMss)) missing+="MSS/CHoCH"
+            if (!(bullDisplacement||bearDisplacement)) missing+="displacement"
+            if (!(bullFvg||bearFvg)) missing+="valid FVG"
+            val detail=when {
+                blockers.isNotEmpty() -> blockers.joinToString("; ")
+                missing.isNotEmpty() -> "Waiting for: "+missing.joinToString(" + ")
+                else -> "ICT phases detected but not in the required same-direction sequence within 12 candles"
+            }
+            marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,detail)
+        }
         signals.lastOrNull()?.let { s ->
             marks+=m(if(s.bullish)Tag.BUY_SETUP else Tag.SELL_SETUP,last,last,min(s.entry,s.stopLoss),max(s.entry,s.stopLoss),last.time,s.reasons.joinToString(" + "))
             if (!s.tradeFiltersPassed) marks+=m(Tag.NO_TRADE,last,last,last.low,last.high,last.time,"Analytical setup only: current spread and/or complete news calendar is missing")
@@ -581,23 +626,77 @@ internal object SmartIctSuite {
         }
     }
 
-    private fun addRangeMarks(c:List<Candle>,cfg:Config,o:MutableList<Mark>) {
-        val w=c.takeLast(cfg.dealingRangeLookback.coerceAtLeast(5)); val hi=w.maxOf { it.high }; val lo=w.minOf { it.low }; val eq=(hi+lo)/2f
+    private fun addRangeMarks(c:List<Candle>,cfg:Config,o:MutableList<Mark>,highPivots:List<Int>,lowPivots:List<Int>) {
+        val lookback=cfg.dealingRangeLookback.coerceAtLeast(5)
+        val from=max(0,c.size-lookback)
+        val w=c.drop(from)
+        val hi=w.maxOf { it.high }; val lo=w.minOf { it.low }; val eq=(hi+lo)/2f
         o+=m(Tag.EQUILIBRIUM,w.first(),w.last(),eq,eq,w.last().time,"50% equilibrium")
         o+=m(Tag.PREMIUM,w.first(),w.last(),eq,hi,w.last().time,"Above equilibrium")
         o+=m(Tag.DISCOUNT,w.first(),w.last(),lo,eq,w.last().time,"Below equilibrium")
         o+=m(Tag.PRICE_DELIVERY_RANGE,w.first(),w.last(),lo,hi,w.last().time,"Recent dealing range")
-        o+=m(Tag.IRL,w.first(),w.last(),lo,hi,w.last().time,"Internal range liquidity context")
-        o+=m(Tag.ERL,w.first(),w.last(),lo,hi,w.last().time,"External range liquidity context")
+        // IRL: confirmed swing liquidity pools strictly inside the active dealing range.
+        // ERL: confirmed swing liquidity pools beyond the active range boundaries.
+        // Keep the range high/low as separate boundary references, not duplicate IRL/ERL zones.
+        (highPivots + lowPivots).distinct().filter { it in from until c.lastIndex }.forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            if (pivot.high > lo && pivot.high < hi) {
+                o += m(Tag.IRL,pivot,pivot,pivot.high,pivot.high,pivot.time,
+                    "Internal range liquidity: confirmed swing high")
+            }
+            if (pivot.low > lo && pivot.low < hi) {
+                o += m(Tag.IRL,pivot,pivot,pivot.low,pivot.low,pivot.time,
+                    "Internal range liquidity: confirmed swing low")
+            }
+        }
+        highPivots.filter { it < from && c[it].high > hi }.takeLast(3).forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            o += m(Tag.ERL,pivot,pivot,pivot.high,pivot.high,pivot.time,
+                "External range liquidity: prior confirmed high beyond dealing range")
+        }
+        lowPivots.filter { it < from && c[it].low < lo }.takeLast(3).forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            o += m(Tag.ERL,pivot,pivot,pivot.low,pivot.low,pivot.time,
+                "External range liquidity: prior confirmed low beyond dealing range")
+        }
+        o += m(Tag.ERL,w.first(),w.last(),hi,hi,w.last().time,
+            "External range boundary: dealing-range high")
+        o += m(Tag.ERL,w.first(),w.last(),lo,lo,w.last().time,
+            "External range boundary: dealing-range low")
         o+=m(Tag.DRAW_ON_LIQUIDITY_HIGH,w.last(),w.last(),hi,hi,w.last().time,"Upper liquidity target candidate")
         o+=m(Tag.DRAW_ON_LIQUIDITY_LOW,w.last(),w.last(),lo,lo,w.last().time,"Lower liquidity target candidate")
         o+=m(Tag.RANGE_EXPANSION,w.last(),w.last(),lo,hi,w.last().time,"Range window; expansion needs confirmation")
-        o+=m(Tag.OTE,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Generic 62-79% OTE range; use directional OTE marks")
-        o+=m(Tag.OTE_BULLISH,w.first(),w.last(),lo+(hi-lo)*0.21f,lo+(hi-lo)*0.38f,w.last().time,"Bullish 62-79% retracement from range high")
-        o+=m(Tag.OTE_BEARISH,w.first(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.79f,w.last().time,"Bearish 62-79% retracement from range low")
-        o+=m(Tag.FIB_62,w.last(),w.last(),lo+(hi-lo)*0.62f,lo+(hi-lo)*0.62f,w.last().time,"62% retracement reference")
-        o+=m(Tag.FIB_705,w.last(),w.last(),lo+(hi-lo)*0.705f,lo+(hi-lo)*0.705f,w.last().time,"70.5% OTE reference")
-        o+=m(Tag.FIB_79,w.last(),w.last(),lo+(hi-lo)*0.79f,lo+(hi-lo)*0.79f,w.last().time,"79% retracement reference")
+
+        // OTE/Fibonacci must be anchored to the latest confirmed impulse leg,
+        // never to unrelated rolling-window extremes.
+        val swingHigh=highPivots.lastOrNull { it>=from }
+        val swingLow=lowPivots.lastOrNull { it>=from }
+        if(swingHigh!=null && swingLow!=null && swingHigh!=swingLow) {
+            val bullish=swingLow<swingHigh
+            val legStart=min(swingLow,swingHigh)
+            val legEnd=max(swingLow,swingHigh)
+            val legBars=c.subList(legStart,legEnd+1)
+            // Anchor the retracement to the true extreme of the whole pivot-to-pivot
+            // impulse leg, not merely the two pivot candles' individual ranges.
+            val legLow=if(bullish)c[swingLow].low else legBars.minOf { it.low }
+            val legHigh=if(bullish)legBars.maxOf { it.high } else c[swingHigh].high
+            val leg=legHigh-legLow
+            if(leg.isFinite() && leg>0f) {
+                val p62=if(bullish)legHigh-leg*0.79f else legLow+leg*0.62f
+                val p79=if(bullish)legHigh-leg*0.62f else legLow+leg*0.79f
+                val tag=if(bullish)Tag.OTE_BULLISH else Tag.OTE_BEARISH
+                val directionLabel=if(bullish)"bullish" else "bearish"
+                o+=m(Tag.OTE,c[legStart],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                    "62-79% retracement of latest confirmed $directionLabel swing leg")
+                o+=m(tag,c[legStart],c.last(),min(p62,p79),max(p62,p79),c.last().time,
+                    "Directional 62-79% OTE anchored to confirmed swing pivots")
+                listOf(0.62f to Tag.FIB_62,0.705f to Tag.FIB_705,0.79f to Tag.FIB_79).forEach { (ratio,fibTag) ->
+                    val level=if(bullish)legHigh-leg*ratio else legLow+leg*ratio
+                    o+=m(fibTag,c[if(bullish)swingHigh else swingLow],c.last(),level,level,c.last().time,
+                        (ratio*100).toInt().toString()+"% retracement of confirmed swing leg")
+                }
+            }
+        }
     }
 
     private fun addCalendarSessionMarks(c:List<Candle>,zone:ZoneId,o:MutableList<Mark>) {
@@ -672,7 +771,12 @@ internal object SmartIctSuite {
         if(related.isEmpty()||c.size<5)return
         val w=c.takeLast(20); val pHigh=w.dropLast(1).maxOf { it.high }; val pLow=w.dropLast(1).minOf { it.low }; val p=w.last()
         related.forEach { (name,raw)->
-            val byTime=raw.filter { it.time>0L }.associateBy { it.time }
+            // Apply the same strict OHLC validation and duplicate-series rejection
+            // used by MTF. A merely non-identical copy is not sufficient evidence
+            // of an independent market for SMT.
+            val clean = validOhlcSeries(raw)
+            if (name.isBlank() || clean.size < 5 || isDuplicateSeries(c, clean)) return@forEach
+            val byTime=clean.associateBy { it.time }
             val aligned=w.mapNotNull { x->byTime[x.time]?.let { x to it } }
             if(aligned.size<5)return@forEach
             val now=aligned.last(); val old=aligned.dropLast(1)
@@ -683,15 +787,17 @@ internal object SmartIctSuite {
         }
     }
 
-    private fun addMtfMarks(frames:Map<String,List<Candle>>,o:MutableList<Mark>) {
-        val bias=frames.mapNotNull { (name,raw)->
-            val c=raw.filter { it.time>0L }.sortedBy { it.time }; if(c.size<5)null else {
-                val w=c.takeLast(20); val mid=(w.maxOf { it.high }+w.minOf { it.low })/2f
-                name to when { c.last().close>mid&&c.last().close>c[c.lastIndex-1].close->1
-                    c.last().close<mid&&c.last().close<c[c.lastIndex-1].close->-1 else->0 }
-            }
+    private fun addMtfMarks(chartCandles:List<Candle>,frames:Map<String,List<Candle>>,o:MutableList<Mark>) {
+        val validFrames=frames.mapNotNull { (name,raw)->
+            val c=validOhlcSeries(raw)
+            if(name.isBlank()||c.size<5||isDuplicateSeries(chartCandles,c)) null else name to c
+        }.toMap()
+        val bias=validFrames.mapNotNull { (name,c)->
+            val w=c.takeLast(20); val mid=(w.maxOf { it.high }+w.minOf { it.low })/2f
+            name to when { c.last().close>mid&&c.last().close>c[c.lastIndex-1].close->1
+                c.last().close<mid&&c.last().close<c[c.lastIndex-1].close->-1 else->0 }
         }
-        val bars=frames.values.filter { it.isNotEmpty() }.map { it.last() }; if(bars.isEmpty())return
+        val bars=validFrames.values.filter { it.isNotEmpty() }.map { it.last() }; if(bars.isEmpty())return
         val bull=bias.count { it.second>0 }; val bear=bias.count { it.second<0 }
         if(bull>bear)o+=m(Tag.HTF_BIAS_BULLISH,bars.first(),bars.last(),bars.minOf { it.low },bars.maxOf { it.high },bars.maxOf { it.time },"Supplied timeframe directional proxy")
         if(bear>bull)o+=m(Tag.HTF_BIAS_BEARISH,bars.first(),bars.last(),bars.minOf { it.low },bars.maxOf { it.high },bars.maxOf { it.time },"Supplied timeframe directional proxy")
@@ -725,6 +831,26 @@ internal object SmartIctSuite {
             o+=m(if(high)Tag.EXTERNAL_STRUCTURE else Tag.INTERNAL_STRUCTURE,x,x,p,p,x.time,"Structure hierarchy candidate")
         };prev=p}
     }
+    private fun validOhlcSeries(raw:List<Candle>):List<Candle> = raw.filter {
+        it.time > 0L && it.open.isFinite() && it.high.isFinite() && it.low.isFinite() &&
+            it.close.isFinite() && it.high >= max(it.open,it.close) &&
+            it.low <= min(it.open,it.close) && it.high >= it.low
+    }.distinctBy { it.time }.sortedBy { it.time }
+
+    private fun isDuplicateSeries(chartRaw:List<Candle>,candidateRaw:List<Candle>):Boolean {
+        val chart=validOhlcSeries(chartRaw)
+        val candidate=validOhlcSeries(candidateRaw)
+        if(chart.size<5||candidate.size<5)return false
+        val byTime=chart.associateBy { it.time }
+        val aligned=candidate.mapNotNull { c->byTime[c.time]?.let { it to c } }
+        if(aligned.size<5)return false
+        val exact=aligned.count { (a,b)->
+            a.open==b.open&&a.high==b.high&&a.low==b.low&&a.close==b.close
+        }
+        val overlapCoverage=aligned.size.toFloat()/min(chart.size,candidate.size).coerceAtLeast(1)
+        return overlapCoverage>=0.8f && exact.toFloat()/aligned.size>=0.9f
+    }
+
     private fun currenciesFor(symbol:String):Set<String> {
         val s=symbol.uppercase().replace("/","").replace("-","")
         return listOf("USD","EUR","GBP","JPY","CHF","CAD","AUD","NZD","XAU").filter { s.contains(it) }.toSet().ifEmpty { setOf("USD") }
@@ -740,9 +866,22 @@ internal object SmartIctSuite {
         Capability("Premium/discount/equilibrium/OTE/dealing range",hasBars,"Configured rolling range"),
         Capability("Sessions, kill zones, PDH/PDL/PWH/PWL and opens",hasBars,"IANA time zone and observed candles"),
         Capability("Silver Bullet/Judas/Turtle Soup/Unicorn/ICT 2022/PO3/MMXM",hasBars,"Heuristic candidates; require contextual validation"),
-        Capability("SMT / related instruments",input.relatedMarkets.isNotEmpty(),"Requires synchronized real related-market OHLC"),
-        Capability("Multi-timeframe bias/confluence",input.timeframes.isNotEmpty(),"Requires actual bars per timeframe"),
-        Capability("News/risk/spread/feed filters",hasBars,"Calendar completeness and spread depend on supplied provider data"),
+        Capability("SMT / related instruments",input.relatedMarkets.any { (name, raw) ->
+            val chart = validOhlcSeries(input.candles)
+            val related = validOhlcSeries(raw)
+            name.isNotBlank() && related.size >= 5 && !isDuplicateSeries(chart, related) &&
+                chart.takeLast(20).count { bar -> related.any { it.time == bar.time } } >= 5
+        },"Requires valid, independent, timestamp-aligned related-market OHLC; copied or malformed chart data is rejected"),
+        Capability("Multi-timeframe bias/confluence",input.timeframes.any { (name, raw) ->
+            name.isNotBlank() && validOhlcSeries(raw).size >= 5 &&
+                !isDuplicateSeries(input.candles, validOhlcSeries(raw))
+        },"Requires valid timeframe OHLC distinct from a copied chart series; chart-derived aggregation remains a proxy"),
+        Capability(
+            "News calendar + live spread filters",
+            hasBars && input.config.newsCalendarComplete &&
+                (input.config.actualSpreadBps?.let { it.isFinite() && it >= 0f && it <= input.config.maxSpreadBps } == true),
+            "Ready only when complete news-calendar coverage and a finite, non-negative live spread within the configured maximum is supplied; chart OHLC alone is insufficient"
+        ),
         Capability("Backtesting",hasBars,"Historical prefix replay; simplified fills"),
         Capability("MT5 / real-money execution",false,"Disabled pending broker adapter and explicit authorization")
     )
