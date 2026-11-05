@@ -1426,6 +1426,69 @@ class CandlestickChartView(context: Context) : View(context) {
                 )
             }
         }
+        drawSmartIctSignalPanel(canvas, result)
+    }
+
+    // Compact signal status is drawn inside the main chart, never in a separate panel.
+    // Missing feed/news/spread confirmation fails closed to NO TRADE.
+    private fun drawSmartIctSignalPanel(canvas: Canvas, result: SmartIctSuite.Result) {
+        val signal = result.signals.lastOrNull()
+        val tradeAllowed = signal?.tradeFiltersPassed == true
+        val status = if (tradeAllowed) {
+            if (signal!!.bullish) "BUY" else "SELL"
+        } else "NO TRADE"
+        val reason = if (signal != null && !tradeAllowed) {
+            "Filters incomplete: spread/news"
+        } else if (signal == null) {
+            result.marks.lastOrNull { it.tag == SmartIctSuite.Tag.NO_TRADE }?.note
+                ?: result.marks.lastOrNull { it.tag == SmartIctSuite.Tag.STALE_DATA_WARNING }?.note
+                ?: "Waiting: liquidity sweep + MSS + FVG"
+        } else "ICT confirmations passed"
+
+        val left = chartLeft() + 7f
+        val top = chartTop() + 7f
+        val width = min(204f, (chartRight() - chartLeft() - 14f).coerceAtLeast(120f))
+        val rowHeight = 13f
+        val height = if (signal == null) 42f else 68f
+        val panel = RectF(left, top, left + width, top + height)
+        val background = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(18, 23, 31)
+            alpha = 232
+            style = Paint.Style.FILL
+        }
+        val border = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (tradeAllowed) Color.rgb(35, 195, 145) else Color.rgb(210, 160, 65)
+            style = Paint.Style.STROKE
+            strokeWidth = 1.2f
+        }
+        canvas.drawRoundRect(panel, 6f, 6f, background)
+        canvas.drawRoundRect(panel, 6f, 6f, border)
+
+        val title = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = if (tradeAllowed && signal!!.bullish) Color.rgb(35, 210, 150)
+                else if (tradeAllowed) Color.rgb(240, 85, 100)
+                else Color.rgb(245, 190, 80)
+            textSize = 11f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.BOLD)
+        }
+        val body = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.WHITE
+            textSize = 9f
+            typeface = Typeface.create(Typeface.DEFAULT, Typeface.NORMAL)
+        }
+        canvas.drawText("ICT SIGNAL  $status", left + 7f, top + 14f, title)
+        canvas.drawText(reason.take(34), left + 7f, top + 27f, body)
+        if (signal != null) {
+            val prefix = if (tradeAllowed) "" else "CANDIDATE "
+            canvas.drawText(prefix + "E " + String.format(java.util.Locale.US, "%.5f", signal.entry) +
+                "  SL " + String.format(java.util.Locale.US, "%.5f", signal.stopLoss),
+                left + 7f, top + 40f, body)
+            canvas.drawText("TP1 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit1) +
+                "  TP2 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit2) +
+                "  TP3 " + String.format(java.util.Locale.US, "%.5f", signal.takeProfit3),
+                left + 7f, top + 53f, body)
+            if (!tradeAllowed) canvas.drawText("Not cleared for execution", left + 7f, top + 65f, title)
+        }
     }
 
     // Only aggregate from the candle interval actually present in the chart.
