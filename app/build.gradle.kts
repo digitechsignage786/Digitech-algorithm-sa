@@ -14,10 +14,11 @@ android {
         versionCode = 1
         versionName = "1.0"
 
+        // Public gateway URL only; the provider API key stays in the Cloudflare Worker secret.
         buildConfigField(
             "String",
-            "TWELVE_DATA_API_KEY",
-            "\"${project.findProperty("TWELVE_DATA_API_KEY") ?: ""}\""
+            "MARKET_DATA_WORKER_URL",
+            "\"${project.findProperty("MARKET_DATA_WORKER_URL") ?: ""}\""
         )
     }
 
