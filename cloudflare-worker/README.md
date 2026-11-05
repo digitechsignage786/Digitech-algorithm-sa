@@ -30,5 +30,7 @@ The Worker accepts only a small set of timeframes and caps historical output at 
 
 - Keep the Twelve Data key as a Cloudflare **Secret**, not a plain variable.
 - Never add the key to source control or share it in chat.
-- This Worker is not yet connected to the Android client. The Android test branch must be configured with the deployed Worker URL in the next integration step.
+- The Android Test Branch now routes historical HTTP and live WebSocket traffic through this Worker; the Twelve Data key is not compiled into the APK.
+- After deploying the Worker, add a GitHub Actions repository secret named `MARKET_DATA_WORKER_URL` containing the HTTPS Worker origin (for example `https://digitech-market-data.<your-subdomain>.workers.dev`). The Test APK build uses this URL to construct `/time_series` and `/ws` endpoints.
+- If that repository secret is missing, the APK still builds for offline/chart regression, but the app reports `GATEWAY NOT SET` and does not connect directly to Twelve Data.
 - Test only. Do not merge the test branch into the main app until the live data and chart behavior have been verified on-device.
