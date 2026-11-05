@@ -34,10 +34,10 @@ jobs:
 
       - name: Build test APK
         env:
-          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          MARKET_DATA_WORKER_URL: ${{ secrets.MARKET_DATA_WORKER_URL }}
         run: |
           gradle --no-daemon assembleDebug \
-            -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
+            -PMARKET_DATA_WORKER_URL="$MARKET_DATA_WORKER_URL"
 
       - name: Upload test APK
         uses: actions/upload-artifact@v4
