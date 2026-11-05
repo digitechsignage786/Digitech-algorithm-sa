@@ -27,7 +27,7 @@ This is a test-branch audit, not a release certification. The analyzer must use 
 
 ## External dependencies not connected or not verified
 
-- [ ] Cloudflare market-data Worker is documented but not connected to the Android client. Live data requires the owner to deploy it and set the Twelve Data key as a Cloudflare secret.
+- [ ] Android Test Branch now routes historical HTTP and live WebSocket requests through the Cloudflare Worker; live verification remains pending until the owner deploys the Worker, sets `TWELVE_DATA_API_KEY` as a Cloudflare secret, and adds the Worker HTTPS origin as the GitHub Actions `MARKET_DATA_WORKER_URL` secret.
 - [ ] Complete news-calendar provider, currency-impact mapping and trustworthy calendar-completeness signal.
 - [ ] Actual bid/ask spread feed and broker-specific commission/slippage assumptions.
 - [ ] Synchronized independent related-market OHLC for SMT.
