@@ -605,8 +605,34 @@ internal object SmartIctSuite {
         o+=m(Tag.PREMIUM,w.first(),w.last(),eq,hi,w.last().time,"Above equilibrium")
         o+=m(Tag.DISCOUNT,w.first(),w.last(),lo,eq,w.last().time,"Below equilibrium")
         o+=m(Tag.PRICE_DELIVERY_RANGE,w.first(),w.last(),lo,hi,w.last().time,"Recent dealing range")
-        o+=m(Tag.IRL,w.first(),w.last(),lo,hi,w.last().time,"Internal range liquidity context")
-        o+=m(Tag.ERL,w.first(),w.last(),lo,hi,w.last().time,"External range liquidity context")
+        // IRL: confirmed swing liquidity pools strictly inside the active dealing range.
+        // ERL: confirmed swing liquidity pools beyond the active range boundaries.
+        // Keep the range high/low as separate boundary references, not duplicate IRL/ERL zones.
+        (highPivots + lowPivots).distinct().filter { it in from until c.lastIndex }.forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            if (pivot.high > lo && pivot.high < hi) {
+                o += m(Tag.IRL,pivot,pivot,pivot.high,pivot.high,pivot.time,
+                    "Internal range liquidity: confirmed swing high")
+            }
+            if (pivot.low > lo && pivot.low < hi) {
+                o += m(Tag.IRL,pivot,pivot,pivot.low,pivot.low,pivot.time,
+                    "Internal range liquidity: confirmed swing low")
+            }
+        }
+        highPivots.filter { it < from && c[it].high > hi }.takeLast(3).forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            o += m(Tag.ERL,pivot,pivot,pivot.high,pivot.high,pivot.time,
+                "External range liquidity: prior confirmed high beyond dealing range")
+        }
+        lowPivots.filter { it < from && c[it].low < lo }.takeLast(3).forEach { pivotIndex ->
+            val pivot = c[pivotIndex]
+            o += m(Tag.ERL,pivot,pivot,pivot.low,pivot.low,pivot.time,
+                "External range liquidity: prior confirmed low beyond dealing range")
+        }
+        o += m(Tag.ERL,w.first(),w.last(),hi,hi,w.last().time,
+            "External range boundary: dealing-range high")
+        o += m(Tag.ERL,w.first(),w.last(),lo,lo,w.last().time,
+            "External range boundary: dealing-range low")
         o+=m(Tag.DRAW_ON_LIQUIDITY_HIGH,w.last(),w.last(),hi,hi,w.last().time,"Upper liquidity target candidate")
         o+=m(Tag.DRAW_ON_LIQUIDITY_LOW,w.last(),w.last(),lo,lo,w.last().time,"Lower liquidity target candidate")
         o+=m(Tag.RANGE_EXPANSION,w.last(),w.last(),lo,hi,w.last().time,"Range window; expansion needs confirmation")
