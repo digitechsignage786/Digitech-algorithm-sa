@@ -478,3 +478,27 @@ class SmartIctSuiteTest {
 
 
 }
+
+    @Test fun silverBulletRequiresOrderedDirectionalSetupNotJustAnFvg() {
+        // bars() ends at 10:22 New York time and contains an FVG, but no
+        // complete same-direction sweep -> MSS/CHoCH -> displacement -> FVG chain.
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
+        assertTrue(result.marks.any {
+            it.tag == SmartIctSuite.Tag.FVG_BULLISH || it.tag == SmartIctSuite.Tag.FVG_BEARISH
+        })
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.SILVER_BULLET })
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.JUDAS_SWING })
+    }
+
+    @Test fun candleRangeTheoryUsesPriorSuppliedCandleOnly() {
+        val candles = bars()
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        val prior = candles[candles.lastIndex - 1]
+        val high = result.marks.first { it.tag == SmartIctSuite.Tag.CRT_HIGH }
+        val low = result.marks.first { it.tag == SmartIctSuite.Tag.CRT_LOW }
+        val midpoint = result.marks.first { it.tag == SmartIctSuite.Tag.CRT_MIDPOINT }
+        assertTrue(high.low == prior.high && high.high == prior.high)
+        assertTrue(low.low == prior.low && low.high == prior.low)
+        assertTrue(kotlin.math.abs(midpoint.low - (prior.high + prior.low) / 2f) < 0.0001f)
+    }
+
