@@ -22,7 +22,8 @@ This is a test-branch audit, not a release certification. The analyzer must use 
 - [ ] IFVG/BPR, volume imbalance, opening gaps/NDOG/NWOG, liquidity void and displacement variants need expanded validation across both directions and session boundaries.
 - [ ] Rejection/propulsion/vacuum blocks, OTE directional models, range expansion and price-delivery context need additional false-positive and invalidation tests.
 - [ ] Session windows, kill zones, macro windows, daily/weekly/monthly bias and period levels need timezone, DST, missing-session and holiday tests.
-- [ ] Silver Bullet, Judas Swing, Turtle Soup, Unicorn, ICT 2022 model, PO3/AMD and MMXM are heuristic setup candidates, not certified textbook implementations.
+- [ ] Silver Bullet and Judas Swing now require ordered same-direction sweep → MSS/CHoCH → displacement → FVG evidence; Silver Bullet is restricted to its NY time windows and Judas Swing requires an observed Asia range plus London kill-zone timing. Regression tests cover rejection of an FVG-only Silver Bullet candidate and CRT reference levels. These remain heuristic candidates, not certified textbook implementations.
+- [ ] Turtle Soup, Unicorn, ICT 2022 model, PO3/AMD and MMXM remain heuristic setup candidates and need dedicated positive/negative fixtures plus visual review.
 - [ ] Entry/stop/target and BUY/SELL setup candidates require broader historical validation with realistic fills and costs.
 
 ## External dependencies not connected or not verified
