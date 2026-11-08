@@ -232,6 +232,8 @@ class SmartIctSuiteTest {
                 it.confirmedAt == buySide[5].time &&
                 it.note.contains("wick through, close back below")
         })
+        assertTrue("Failed buy-side breakout should be surfaced as Turtle Soup",
+            buyResult.marks.any { it.tag == SmartIctSuite.Tag.TURTLE_SOUP && it.confirmedAt == buySide[5].time })
 
         val sellSide = fixture(listOf(
             floatArrayOf(9f, 10f, 8f, 9f),
@@ -247,6 +249,8 @@ class SmartIctSuiteTest {
                 it.confirmedAt == sellSide[5].time &&
                 it.note.contains("wick through, close back above")
         })
+        assertTrue("Failed sell-side breakdown should be surfaced as Turtle Soup",
+            sellResult.marks.any { it.tag == SmartIctSuite.Tag.TURTLE_SOUP && it.confirmedAt == sellSide[5].time })
     }
 
 
@@ -498,4 +502,21 @@ class SmartIctSuiteTest {
         assertTrue(low.low == prior.low && low.high == prior.low)
         assertTrue(kotlin.math.abs(midpoint.low - (prior.high + prior.low) / 2f) < 0.0001f)
     }
+
+    @Test fun ipdaRollingRangesRequireTheirFullRealCandleWindows() {
+        val start = 1_790_000_000_000L
+        val candles = (0 until 60).map { i ->
+            val base = 100f + i * 0.1f
+            Candle(start + i * 60_000L, base, base + 1f, base - 1f, base + 0.5f)
+        }
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_20 })
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_40 })
+        assertTrue(result.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_60 })
+        assertFalse(result.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_20 && it.startTime != candles[40].time })
+        val short = SmartIctSuite.analyze(SmartIctSuite.Input(candles.take(39)))
+        assertFalse(short.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_40 })
+        assertFalse(short.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_60 })
+    }
+
 }
