@@ -519,4 +519,60 @@ class SmartIctSuiteTest {
         assertFalse(short.marks.any { it.tag == SmartIctSuite.Tag.IPDA_RANGE_60 })
     }
 
+
+    @Test fun inducementAndCisdRequireRealSweepThenDirectionalReclaim() {
+        val bullish = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(8.5f, 9.5f, 7f, 8f),
+            floatArrayOf(7f, 8f, 5f, 6f),       // confirmed swing low
+            floatArrayOf(6f, 7f, 6f, 6.5f),
+            floatArrayOf(6.5f, 8f, 6f, 7.5f),  // right-side confirmation
+            floatArrayOf(5.5f, 7f, 4f, 5.4f),   // sell-side sweep and reclaim
+            floatArrayOf(6f, 6.2f, 5.2f, 5.5f), // last bearish candle
+            floatArrayOf(5.8f, 7f, 5.6f, 6.5f)  // close through bearish open
+        ))
+        val bull = SmartIctSuite.analyze(SmartIctSuite.Input(bullish))
+        assertTrue("A confirmed sell-side raid should be marked as inducement",
+            bull.marks.any { it.tag == SmartIctSuite.Tag.INDUCEMENT_BULLISH &&
+                it.confirmedAt == bullish[5].time })
+        assertTrue("Bullish CISD proxy needs a post-sweep close through the last bearish open",
+            bull.marks.any { it.tag == SmartIctSuite.Tag.CISD_BULLISH &&
+                it.confirmedAt == bullish[7].time })
+
+        val bearish = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(10f, 12f, 9f, 11f),
+            floatArrayOf(12f, 15f, 11f, 14f),   // confirmed swing high
+            floatArrayOf(13f, 13.5f, 10f, 11f),
+            floatArrayOf(11f, 12f, 9.5f, 10f),  // right-side confirmation
+            floatArrayOf(14f, 16f, 13f, 14.5f), // buy-side sweep and reclaim
+            floatArrayOf(14f, 14.8f, 13.8f, 14.6f), // last bullish candle
+            floatArrayOf(14.2f, 14.4f, 13f, 13.5f)  // close through bullish open
+        ))
+        val bear = SmartIctSuite.analyze(SmartIctSuite.Input(bearish))
+        assertTrue("A confirmed buy-side raid should be marked as inducement",
+            bear.marks.any { it.tag == SmartIctSuite.Tag.INDUCEMENT_BEARISH &&
+                it.confirmedAt == bearish[5].time })
+        assertTrue("Bearish CISD proxy needs a post-sweep close through the last bullish open",
+            bear.marks.any { it.tag == SmartIctSuite.Tag.CISD_BEARISH &&
+                it.confirmedAt == bearish[7].time })
+    }
+
+    @Test fun cisdDoesNotAppearWithoutAConfirmedLiquiditySweep() {
+        val candles = fixture(listOf(
+            floatArrayOf(9f, 10f, 8f, 9f),
+            floatArrayOf(8.5f, 9.5f, 7f, 8f),
+            floatArrayOf(7f, 8f, 5f, 6f),
+            floatArrayOf(6f, 7f, 6f, 6.5f),
+            floatArrayOf(6.5f, 8f, 6f, 7.5f),
+            floatArrayOf(6f, 7f, 5.5f, 6.8f),
+            floatArrayOf(6.8f, 7f, 5.8f, 6f),
+            floatArrayOf(6f, 7.2f, 5.9f, 7.1f)
+        ))
+        val result = SmartIctSuite.analyze(SmartIctSuite.Input(candles))
+        assertFalse(result.marks.any {
+            it.tag == SmartIctSuite.Tag.CISD_BULLISH || it.tag == SmartIctSuite.Tag.CISD_BEARISH
+        })
+    }
+
 }
