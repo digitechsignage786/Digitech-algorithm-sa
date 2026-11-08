@@ -470,10 +470,25 @@ internal object SmartIctSuite {
 
         val local=Instant.ofEpochMilli(last.time).atZone(zone).toLocalTime()
         val minute=local.hour*60+local.minute
-        if ((minute in 180..240 || minute in 600..660 || minute in 840..900) && (bullFvg||bearFvg))
-            marks+=m(Tag.SILVER_BULLET,candles[max(0,candles.lastIndex-3)],last,candles.takeLast(4).minOf { it.low },candles.takeLast(4).maxOf { it.high },last.time,"Silver Bullet time-window plus FVG candidate")
-        if ((bullSweep||bearSweep) && (bullFvg||bearFvg))
-            marks+=m(Tag.JUDAS_SWING,candles[max(0,candles.lastIndex-3)],last,candles.takeLast(4).minOf { it.low },candles.takeLast(4).maxOf { it.high },last.time,"Sweep + FVG candidate; session direction needs validation")
+        val inSilverBulletWindow = minute in 180..240 || minute in 600..660 || minute in 840..900
+        // Silver Bullet is only surfaced when the complete directional sequence
+        // is present inside a recognized NY time window, not from an unrelated FVG.
+        if (inSilverBulletWindow && (bullSetup || bearSetup)) {
+            val direction = if (bullSetup) "bullish" else "bearish"
+            marks += m(Tag.SILVER_BULLET,candles[max(0,candles.lastIndex-11)],last,
+                candles.takeLast(12).minOf { it.low },candles.takeLast(12).maxOf { it.high },
+                last.time,"$direction sweep + MSS/CHoCH + displacement + FVG in NY Silver Bullet window")
+        }
+        // Judas Swing requires an observed Asia range and a London-session
+        // manipulation followed by the same ordered reversal/expansion sequence.
+        val asiaRangeForJudas = marks.lastOrNull { it.tag == Tag.ASIA_RANGE }
+        val inLondonKillZone = local.hour in 2..5
+        if (asiaRangeForJudas != null && inLondonKillZone && (bullSetup || bearSetup)) {
+            val direction = if (bullSetup) "bullish" else "bearish"
+            marks += m(Tag.JUDAS_SWING,asiaRangeForJudas.let { candles.first { c -> c.time == it.startTime } },last,
+                asiaRangeForJudas.low,asiaRangeForJudas.high,last.time,
+                "$direction Asia-range raid and ordered reversal candidate in London kill zone")
+        }
         val bullOb=marks.lastOrNull { it.tag==Tag.ORDER_BLOCK_BULLISH && !it.invalidated }
         val bearOb=marks.lastOrNull { it.tag==Tag.ORDER_BLOCK_BEARISH && !it.invalidated }
         if (bullOb!=null && marks.any { it.tag==Tag.FVG_BULLISH && it.low<=bullOb.high && it.high>=bullOb.low })
