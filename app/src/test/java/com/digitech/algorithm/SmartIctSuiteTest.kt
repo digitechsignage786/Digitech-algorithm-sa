@@ -476,10 +476,7 @@ class SmartIctSuiteTest {
         assertFalse(internal.any { a -> external.any { b -> a.low == b.low && a.high == b.high && a.note == b.note } })
     }
 
-
-}
-
-    @Test fun silverBulletRequiresOrderedDirectionalSetupNotJustAnFvg() {
+@Test fun silverBulletRequiresOrderedDirectionalSetupNotJustAnFvg() {
         // bars() ends at 10:22 New York time and contains an FVG, but no
         // complete same-direction sweep -> MSS/CHoCH -> displacement -> FVG chain.
         val result = SmartIctSuite.analyze(SmartIctSuite.Input(bars()))
@@ -501,4 +498,4 @@ class SmartIctSuiteTest {
         assertTrue(low.low == prior.low && low.high == prior.low)
         assertTrue(kotlin.math.abs(midpoint.low - (prior.high + prior.low) / 2f) < 0.0001f)
     }
-
+}
