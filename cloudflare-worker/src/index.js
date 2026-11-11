@@ -85,8 +85,15 @@ export default {
         });
         const upstreamSocket = upstreamResponse.webSocket;
         if (!upstreamSocket) {
-          return json({ error: "Provider WebSocket handshake failed" }, 502);
+          console.error("[market-data-ws] provider handshake rejected", {
+            status: upstreamResponse.status,
+            statusText: upstreamResponse.statusText,
+          });
+          return json({ error: "Provider WebSocket handshake failed", providerStatus: upstreamResponse.status }, 502);
         }
+        console.info("[market-data-ws] provider handshake accepted", {
+          status: upstreamResponse.status,
+        });
 
         const pair = new WebSocketPair();
         const client = pair[0];
@@ -108,20 +115,38 @@ export default {
         });
 
         server.addEventListener("close", event => {
-          try { upstreamSocket.close(event.code || 1000, "client closed"); } catch {}
+          console.warn("[market-data-ws] app client closed", {
+            code: event.code,
+            reason: event.reason || "",
+          });
+          try { upstreamSocket.close(event.code || 1000, "client closed"); } catch (error) {
+            console.error("[market-data-ws] upstream close failed", error?.message || String(error));
+          }
         });
         upstreamSocket.addEventListener("close", event => {
-          try { server.close(event.code || 1000, "provider closed"); } catch {}
+          console.warn("[market-data-ws] provider closed", {
+            code: event.code,
+            reason: event.reason || "",
+          });
+          try { server.close(event.code || 1000, "provider closed"); } catch (error) {
+            console.error("[market-data-ws] client close failed", error?.message || String(error));
+          }
         });
-        server.addEventListener("error", () => {
+        server.addEventListener("error", event => {
+          console.error("[market-data-ws] app socket error", event?.message || "socket error");
           try { upstreamSocket.close(1011, "client socket error"); } catch {}
         });
-        upstreamSocket.addEventListener("error", () => {
+        upstreamSocket.addEventListener("error", event => {
+          console.error("[market-data-ws] provider socket error", event?.message || "socket error");
           try { server.close(1011, "provider socket error"); } catch {}
         });
 
         return new Response(null, { status: 101, webSocket: client });
-      } catch {
+      } catch (error) {
+        console.error("[market-data-ws] provider connection exception", {
+          name: error?.name || "Error",
+          message: error?.message || String(error),
+        });
         return json({ error: "Provider WebSocket connection failed" }, 502);
       }
     }
