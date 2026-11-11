@@ -10,8 +10,10 @@ jobs:
   deploy-worker:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout default branch
+      - name: Checkout Worker source from test branch
         uses: actions/checkout@v4
+        with:
+          ref: ict-auto-visibility-review-v1
 
       - name: Validate deployment secrets
         env:
