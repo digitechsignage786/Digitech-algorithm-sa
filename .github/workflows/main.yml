@@ -8,8 +8,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Test Branch
         uses: actions/checkout@v4
+        with:
+          ref: ict-auto-visibility-review-v1
 
       - name: Setup Java
         uses: actions/setup-java@v5
@@ -24,10 +26,10 @@ jobs:
 
       - name: Build APK
         env:
-          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          MARKET_DATA_WORKER_URL: ${{ secrets.MARKET_DATA_WORKER_URL }}
         run: |
-          gradle --no-daemon assembleDebug \
-            -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
+          gradle --no-daemon testDebugUnitTest assembleDebug \
+            -PMARKET_DATA_WORKER_URL="$MARKET_DATA_WORKER_URL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
