@@ -30,5 +30,4 @@ jobs:
         run: |
           npx --yes wrangler@4 deploy cloudflare-worker/src/index.js \
             --name digitech_algoritam_s_a \
-            --compatibility-date 2026-11-11 \
-            --account-id "$CLOUDFLARE_ACCOUNT_ID"
+            --compatibility-date 2026-11-11
