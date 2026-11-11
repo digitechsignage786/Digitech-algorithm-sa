@@ -1,32 +1,45 @@
-# Smart ICT master coverage
+# Smart ICT master coverage — verified status
 
-This branch is a test integration, separate from `main`. The analyzer only examines caller-supplied OHLC bars and never manufactures candles or sends live orders.
+This is a test-branch audit, not a release certification. The analyzer must use supplied real OHLC and must never manufacture candles or place live orders.
 
-## Rule-engine coverage
+## Implemented rule paths (unit-tested where noted)
 
-- [x] Market structure: confirmed swing points, HH/HL/LH/LL, short/intermediate/long-term pivot candidates, internal/external labels, BOS, CHoCH, MSS and protected levels.
-- [x] Liquidity: BSL/SSL candidates, EQH/EQL and relative equal levels, wick/close sweeps, IRL/ERL and draw-on-liquidity candidates.
-- [x] Imbalance/displacement: FVG, IFVG, BPR, CE 50%, displacement, volume-imbalance proxy, observed opening gaps, partial/full fill and invalidation status.
-- [x] Zones: bullish/bearish OB, breaker candidates, mitigation/retest, rejection, propulsion and vacuum-block candidates with invalidation notes.
-- [x] Range/Fibonacci: dealing/price-delivery ranges, premium/discount/equilibrium, OTE and directional OTE candidates, 62/70.5/79 references and range-expansion context.
-- [x] Time/market structure context: observed Asia/London/NY session range and open/high/low candidates, kill-zone windows, PDH/PDL/PWH/PWL, daily/weekly/midnight opens (only when data contains the actual timestamp), macro-window context and period-bias proxies.
-- [x] Setup candidates: liquidity raid + MSS/FVG, Silver Bullet, Judas Swing, Turtle Soup, Unicorn OB/FVG overlap, ICT 2022-style model, AMD/Power-of-Three, MMXM, OTE, FVG/OB and breaker/FVG confluence.
-- [x] Multi-timeframe framework: aggregate *upward only* from candles actually present in the chart; return directional proxy/confluence/conflict context.
-- [x] SMT framework: comparisons require synchronized related-market OHLC passed explicitly to the engine.
-- [x] Smart signal result: analytical entry/SL/TP1/TP2/TP3, R:R, confluence and rationale; stale-data, ATR-volatility, stop-distance, daily-loss, news and spread gates; NO_TRADE notes.
-- [x] Prefix-replay backtest framework with trade counts, win/loss, win rate, net R, profit factor, max drawdown and expectancy; bounded to 300 bars maximum for mobile responsiveness.
-- [x] Unit tests for real-OHLC output, missing-data/no-synthetic-candle behavior, external-input capabilities, master concept-tag coverage, insufficient backtest history and disabled real-money execution.
+- [x] Confirmed swing highs/lows with right-side confirmation; HH/HL/LH/LL classification.
+- [x] BOS/CHoCH close-through logic after pivot confirmation.
+- [x] Liquidity sweep candidates requiring wick-through and close-back; EQH/EQL candidates.
+- [x] FVG detection, partial/full fill tracking and close-based invalidation/inversion.
+- [x] Dealing range, equilibrium/50%, premium/discount and OTE range calculations.
+- [x] Selected order-block, breaker and mitigation/retest heuristics.
+- [x] Input validation, duplicate timestamp filtering, stale/missing-feed and spread/news fail-closed capability gates.
+- [x] Analytical signal fields and risk filters are represented in the suite; real-money execution remains disabled.
+- [x] Prefix-replay backtest framework and summary metrics exist; this is not yet a validated production backtester.
+- [x] Automatic overlay relevance filtering is retained; renderer currently caps visible active marks.
 
-## External/live dependencies not yet connected or verified
+## Partial / heuristic — do not treat as fully verified ICT implementation
 
-- [ ] News-calendar provider, currency-impact mapping and verified calendar-completeness state. An empty list does **not** mean there is no news.
-- [ ] Actual bid/ask spread feed and broker-specific spread/commission/slippage assumptions.
-- [ ] Correlated instruments (for example, suitable FX pairs/metals) with synchronized timestamps for SMT. Current chart gives the analyzer its selected instrument only.
-- [ ] Independent lower-timeframe candles for LTF entry models when chart timeframe is higher. The engine deliberately does not fabricate lower-timeframe candles.
-- [ ] Broker/MT5 adapter, credentials management, order acknowledgements/rejections, protective-order validation and account selection. Real-money execution is deliberately disabled.
-- [ ] On-device visual validation of all overlays across pan/zoom/rotation, symbol changes and live reconnection.
-- [ ] Full, statistically meaningful backtesting using a representative historical dataset plus spread, commission, slippage, session and provider-data assumptions. Current tests are software tests, not proof of strategy profitability.
+- [ ] Short/intermediate/long-term swing hierarchy and protected/internal/external structure need broader edge-case and multi-timeframe validation.
+- [x] CRT prior-candle high/low/50% reference and IPDA 20/40/60-candle range minimum-window behavior now have unit fixtures; IRL/ERL have distinct-level fixtures.
+- [ ] Draw-on-liquidity, inducement and CISD still need independent positive/negative rule fixtures and visual review.
+- [ ] IFVG/BPR, volume imbalance, opening gaps/NDOG/NWOG, liquidity void and displacement variants need expanded validation across both directions and session boundaries.
+- [ ] Rejection/propulsion/vacuum blocks, OTE directional models, range expansion and price-delivery context need additional false-positive and invalidation tests.
+- [ ] Session windows, kill zones, macro windows, daily/weekly/monthly bias and period levels need timezone, DST, missing-session and holiday tests.
+- [ ] Silver Bullet and Judas Swing now require ordered same-direction sweep → MSS/CHoCH → displacement → FVG evidence; Silver Bullet is restricted to its NY time windows and Judas Swing requires an observed Asia range plus London kill-zone timing. Regression tests cover rejection of an FVG-only Silver Bullet candidate and CRT reference levels. These remain heuristic candidates, not certified textbook implementations.
+- [x] Turtle Soup failed-breakout candidates are now asserted alongside both buy-side and sell-side sweep fixtures.
+- [ ] Unicorn, ICT 2022 model, PO3/AMD and MMXM remain heuristic setup candidates and need dedicated positive/negative fixtures plus visual review.
+- [ ] Entry/stop/target and BUY/SELL setup candidates require broader historical validation with realistic fills and costs.
 
-## Interpretation
+## External dependencies not connected or not verified
 
-The checked rule-engine items mean a deterministic heuristic/rule path and a mark type exist; they do **not** mean each ICT concept is a unique universally agreed textbook algorithm, that all required provider inputs are currently wired into the app, or that a setup has trading edge. Treat these marks as analytical candidates until verified against market history and on-device rendering. The live-order path is disabled.
+- [ ] Android Test Branch now routes historical HTTP and live WebSocket requests through the Cloudflare Worker; live verification remains pending until the owner deploys the Worker, sets `TWELVE_DATA_API_KEY` as a Cloudflare secret, and adds the Worker HTTPS origin as the GitHub Actions `MARKET_DATA_WORKER_URL` secret.
+- [ ] Complete news-calendar provider, currency-impact mapping and trustworthy calendar-completeness signal.
+- [ ] Actual bid/ask spread feed and broker-specific commission/slippage assumptions.
+- [ ] Synchronized independent related-market OHLC for SMT.
+- [ ] Independent provider-supplied higher-timeframe OHLC for true MTF confluence; chart-candle aggregation is only a proxy.
+- [ ] Independent lower-timeframe OHLC for lower-timeframe entry models.
+- [ ] Broker/MT5 adapter, secure credential handling, order acknowledgements/rejections, protective-order checks and account selection. Real-money execution stays disabled.
+- [ ] On-device visual regression for overlays during pan, zoom, rotation, symbol change, reconnect and live candle updates.
+- [ ] Representative historical backtest validation including spread, commission, slippage, sessions and provider-data quality.
+
+## Release interpretation
+
+A tag in an enum, a candidate mark, or a passing unit test does not prove that every named concept is fully implemented, correctly rendered, profitable, or ready for live trading. Treat unverified marks as analytical candidates. No release or merge should be declared complete until the applicable data, test and device gates pass. The locked Main App remains separate and unchanged.

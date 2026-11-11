@@ -8,6 +8,7 @@ on:
       - ict-bos-log-test-package-v1
       - smart-ict-complete-integration-v1
       - smart-ict-data-validation-v1
+      - ict-auto-visibility-review-v1
 
 jobs:
   build:
@@ -30,10 +31,10 @@ jobs:
 
       - name: Build APK
         env:
-          TWELVE_DATA_API_KEY: ${{ secrets.TWELVE_DATA_API_KEY }}
+          MARKET_DATA_WORKER_URL: ${{ secrets.MARKET_DATA_WORKER_URL }}
         run: |
           gradle --no-daemon testDebugUnitTest assembleDebug \
-            -PTWELVE_DATA_API_KEY="$TWELVE_DATA_API_KEY"
+            -PMARKET_DATA_WORKER_URL="$MARKET_DATA_WORKER_URL"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
