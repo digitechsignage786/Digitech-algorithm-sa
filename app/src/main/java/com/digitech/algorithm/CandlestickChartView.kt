@@ -40,6 +40,8 @@ private data class IctSourceCandle(
 
 private data class IctMtfPivot(
     val sourceIndex: Int,
+    // First source candle on which this pivot is knowable without look-ahead.
+    val confirmationIndex: Int,
     val sourceTime: Long,
     val price: Float,
     val high: Boolean,
@@ -1237,10 +1239,13 @@ class CandlestickChartView(context: Context) : View(context) {
 
         val events = ArrayList<BosEvent>()
         for (pivot in structural) {
-            if (pivot.sourceIndex !in source.indices) continue
+            if (pivot.sourceIndex !in source.indices ||
+                pivot.confirmationIndex !in source.indices ||
+                pivot.confirmationIndex < pivot.sourceIndex
+            ) continue
             var breakIndex = -1
             if (pivot.high) {
-                for (j in pivot.sourceIndex + 1 until source.size) {
+                for (j in pivot.confirmationIndex + 1 until source.size) {
                     // Close-through confirmation: a wick above the pivot is
                     // not enough to create BOS.
                     if (source[j].close > pivot.price) {
@@ -1250,7 +1255,7 @@ class CandlestickChartView(context: Context) : View(context) {
                 }
                 if (breakIndex >= 0) events.add(BosEvent(pivot, breakIndex, true))
             } else {
-                for (j in pivot.sourceIndex + 1 until source.size) {
+                for (j in pivot.confirmationIndex + 1 until source.size) {
                     if (source[j].close < pivot.price) {
                         breakIndex = j
                         break
@@ -1454,10 +1459,10 @@ class CandlestickChartView(context: Context) : View(context) {
         for (i in 1 until source.size - 1) {
             val c = source[i]
             if (c.high > source[i - 1].high && c.high > source[i + 1].high) {
-                sth.add(IctMtfPivot(i, c.time, c.high, true, intervalMillis, "STH"))
+                sth.add(IctMtfPivot(i, i + 1, c.time, c.high, true, intervalMillis, "STH"))
             }
             if (c.low < source[i - 1].low && c.low < source[i + 1].low) {
-                stl.add(IctMtfPivot(i, c.time, c.low, false, intervalMillis, "STL"))
+                stl.add(IctMtfPivot(i, i + 1, c.time, c.low, false, intervalMillis, "STL"))
             }
         }
 
@@ -1465,11 +1470,11 @@ class CandlestickChartView(context: Context) : View(context) {
             val c = source[i]
             if (c.high > source[i - 1].high && c.high >= source[i - 2].high &&
                 c.high > source[i + 1].high && c.high >= source[i + 2].high) {
-                shsl.add(IctMtfPivot(i, c.time, c.high, true, intervalMillis, "SH"))
+                shsl.add(IctMtfPivot(i, i + 2, c.time, c.high, true, intervalMillis, "SH"))
             }
             if (c.low < source[i - 1].low && c.low <= source[i - 2].low &&
                 c.low < source[i + 1].low && c.low <= source[i + 2].low) {
-                shsl.add(IctMtfPivot(i, c.time, c.low, false, intervalMillis, "SL"))
+                shsl.add(IctMtfPivot(i, i + 2, c.time, c.low, false, intervalMillis, "SL"))
             }
         }
 
@@ -1479,13 +1484,13 @@ class CandlestickChartView(context: Context) : View(context) {
         for (j in 1 until highs.size - 1) {
             val m = highs[j]
             if (m.price > highs[j - 1].price && m.price > highs[j + 1].price) {
-                ithitl.add(m.copy(kind = "ITH"))
+                ithitl.add(m.copy(kind = "ITH", confirmationIndex = highs[j + 1].confirmationIndex))
             }
         }
         for (j in 1 until lows.size - 1) {
             val m = lows[j]
             if (m.price < lows[j - 1].price && m.price < lows[j + 1].price) {
-                ithitl.add(m.copy(kind = "ITL"))
+                ithitl.add(m.copy(kind = "ITL", confirmationIndex = lows[j + 1].confirmationIndex))
             }
         }
 
@@ -1499,13 +1504,13 @@ class CandlestickChartView(context: Context) : View(context) {
         for (j in 1 until majorHighs.size - 1) {
             val m = majorHighs[j]
             if (m.price > majorHighs[j - 1].price && m.price > majorHighs[j + 1].price) {
-                lthltl.add(m.copy(kind = "LTH"))
+                lthltl.add(m.copy(kind = "LTH", confirmationIndex = majorHighs[j + 1].confirmationIndex))
             }
         }
         for (j in 1 until majorLows.size - 1) {
             val m = majorLows[j]
             if (m.price < majorLows[j - 1].price && m.price < majorLows[j + 1].price) {
-                lthltl.add(m.copy(kind = "LTL"))
+                lthltl.add(m.copy(kind = "LTL", confirmationIndex = majorLows[j + 1].confirmationIndex))
             }
         }
 
